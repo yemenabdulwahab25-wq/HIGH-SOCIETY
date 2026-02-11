@@ -1,0 +1,9 @@
+{
+  "name": "High Society",
+  "description": "Premium Cannabis Pickup & Delivery Platform",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
