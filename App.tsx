@@ -47,6 +47,21 @@ const AppContent = () => {
     localStorage.setItem('hs_cart', JSON.stringify(cart));
   }, [cart]);
 
+  // Poll for settings updates (e.g. if Admin changes Access Code in another tab)
+  useEffect(() => {
+    const interval = setInterval(() => {
+        const latest = storage.getSettings();
+        setSettings(prev => {
+            // Only update if changed to avoid unnecessary re-renders
+            if (JSON.stringify(prev) !== JSON.stringify(latest)) {
+                return latest;
+            }
+            return prev;
+        });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const addToCart = (product: Product, weightIdx: number, quantity: number) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id && item.selectedWeight.label === product.weights[weightIdx].label);
