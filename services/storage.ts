@@ -6,6 +6,8 @@ const KEYS = {
   SETTINGS: 'hs_settings',
   CART: 'hs_cart',
   USER: 'hs_user',
+  CATEGORIES: 'hs_categories',
+  BRANDS: 'hs_brands',
 };
 
 // Seed Data
@@ -17,7 +19,10 @@ const INITIAL_PRODUCTS: Product[] = [
     flavor: 'Galactic Gas',
     strain: StrainType.INDICA,
     thcPercentage: 32,
-    weights: [{ label: '3.5g', price: 60, weightGrams: 3.5 }, { label: '7g', price: 110, weightGrams: 7 }],
+    weights: [
+        { label: '3.5g', price: 60, weightGrams: 3.5, stock: 40 }, 
+        { label: '7g', price: 110, weightGrams: 7, stock: 10 }
+    ],
     stock: 50,
     imageUrl: 'https://picsum.photos/400/400?random=1',
     description: 'Heavy hitting indica with notes of diesel and pine.',
@@ -30,7 +35,7 @@ const INITIAL_PRODUCTS: Product[] = [
     flavor: 'Blueberry Blast',
     strain: StrainType.HYBRID,
     thcPercentage: 10, // 10mg
-    weights: [{ label: '10pk', price: 25, weightGrams: 0 }],
+    weights: [{ label: '10pk', price: 25, weightGrams: 0, stock: 100 }],
     stock: 100,
     imageUrl: 'https://picsum.photos/400/400?random=2',
     description: 'Delicious blueberry gummies infused with premium distillate.',
@@ -43,7 +48,7 @@ const INITIAL_PRODUCTS: Product[] = [
     flavor: 'Mango Haze',
     strain: StrainType.SATIVA,
     thcPercentage: 88,
-    weights: [{ label: '1g', price: 45, weightGrams: 1 }],
+    weights: [{ label: '1g', price: 45, weightGrams: 1, stock: 20 }],
     stock: 20,
     imageUrl: 'https://picsum.photos/400/400?random=3',
     description: 'Tropical mango vibes for an uplifting day.',
@@ -103,5 +108,27 @@ export const storage = {
   },
   saveSettings: (settings: StoreSettings) => {
     localStorage.setItem(KEYS.SETTINGS, JSON.stringify(settings));
+  },
+  getCategories: (): string[] => {
+    const data = localStorage.getItem(KEYS.CATEGORIES);
+    return data ? JSON.parse(data) : Object.values(Category);
+  },
+  saveCategory: (category: string) => {
+    const categories = storage.getCategories();
+    if (!categories.includes(category)) {
+      categories.push(category);
+      localStorage.setItem(KEYS.CATEGORIES, JSON.stringify(categories));
+    }
+  },
+  getBrands: (): string[] => {
+    const data = localStorage.getItem(KEYS.BRANDS);
+    return data ? JSON.parse(data) : ['MoonRocks', 'YumYum', 'Cloud9', 'Cookies', 'Jungle Boys'];
+  },
+  saveBrand: (brand: string) => {
+    const brands = storage.getBrands();
+    if (!brands.includes(brand)) {
+      brands.push(brand);
+      localStorage.setItem(KEYS.BRANDS, JSON.stringify(brands));
+    }
   },
 };

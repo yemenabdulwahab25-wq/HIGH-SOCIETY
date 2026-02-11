@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { Storefront } from './pages/Storefront';
 import { ProductDetails } from './pages/ProductDetails';
 import { Cart } from './pages/Cart';
+import { Account } from './pages/Account';
 import { StoreAccess } from './pages/StoreAccess';
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -106,6 +107,13 @@ const AppContent = () => {
         <CustomerRoute settings={settings}>
           <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)}>
             <Cart cart={cart} removeFromCart={removeFromCart} clearCart={clearCart} settings={settings} />
+          </Layout>
+        </CustomerRoute>
+      } />
+      <Route path="/account" element={
+        <CustomerRoute settings={settings}>
+          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)}>
+            <Account addToCart={addToCart} />
           </Layout>
         </CustomerRoute>
       } />

@@ -24,10 +24,13 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
 
   if (!product) return <div className="p-10 text-center">Loading...</div>;
 
-  const currentPrice = product.weights[selectedWeightIdx].price;
+  const currentVariant = product.weights[selectedWeightIdx];
+  const currentPrice = currentVariant.price;
+  const currentStock = currentVariant.stock || 0;
+  const isVariantOutOfStock = currentStock === 0;
 
   const handleAdd = () => {
-    if (product.stock === 0) return;
+    if (isVariantOutOfStock) return;
     addToCart(product, selectedWeightIdx, quantity);
     navigate('/cart');
   };
@@ -63,22 +66,33 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
 
           {/* Weight Selection */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-400">Select Weight</label>
+            <label className="text-sm font-medium text-gray-400">Select Variation</label>
             <div className="grid grid-cols-3 gap-3">
-              {product.weights.map((w, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedWeightIdx(idx)}
-                  className={`border rounded-lg p-3 text-center transition-all ${
-                    selectedWeightIdx === idx
-                    ? 'border-cannabis-500 bg-cannabis-500/10 text-white ring-1 ring-cannabis-500'
-                    : 'border-gray-700 bg-dark-800 text-gray-400 hover:bg-dark-700'
-                  }`}
-                >
-                  <div className="font-bold">{w.label}</div>
-                  <div className="text-sm opacity-80">${w.price}</div>
-                </button>
-              ))}
+              {product.weights.map((w, idx) => {
+                const stock = w.stock || 0;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedWeightIdx(idx)}
+                    disabled={stock === 0}
+                    className={`border rounded-lg p-3 text-center transition-all relative ${
+                      selectedWeightIdx === idx
+                      ? 'border-cannabis-500 bg-cannabis-500/10 text-white ring-1 ring-cannabis-500'
+                      : stock === 0 
+                        ? 'border-gray-800 bg-dark-900 text-gray-600 cursor-not-allowed opacity-50'
+                        : 'border-gray-700 bg-dark-800 text-gray-400 hover:bg-dark-700'
+                    }`}
+                  >
+                    <div className="font-bold">{w.label}</div>
+                    <div className="text-sm opacity-80">${w.price}</div>
+                    {stock === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="bg-black/80 text-red-500 text-[10px] font-bold px-1 rounded transform -rotate-12 border border-red-500/50">SOLD OUT</div>
+                        </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -86,17 +100,33 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
           <div className="pt-6 border-t border-gray-800">
              <div className="flex items-center justify-between mb-4">
                <div className="flex items-center gap-4 bg-dark-800 rounded-lg p-1">
-                 <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="p-2 hover:bg-white/10 rounded"><Minus className="w-4 h-4" /></button>
+                 <button 
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))} 
+                    className="p-2 hover:bg-white/10 rounded disabled:opacity-30"
+                    disabled={isVariantOutOfStock}
+                 >
+                    <Minus className="w-4 h-4" />
+                 </button>
                  <span className="font-bold w-4 text-center">{quantity}</span>
-                 <button onClick={() => setQuantity(quantity + 1)} className="p-2 hover:bg-white/10 rounded"><Plus className="w-4 h-4" /></button>
+                 <button 
+                    onClick={() => setQuantity(Math.min(quantity + 1, currentStock))} 
+                    className="p-2 hover:bg-white/10 rounded disabled:opacity-30"
+                    disabled={isVariantOutOfStock || quantity >= currentStock}
+                 >
+                    <Plus className="w-4 h-4" />
+                 </button>
                </div>
                <div className="text-2xl font-bold text-white">
                  ${currentPrice * quantity}
                </div>
              </div>
+            
+             {quantity >= currentStock && !isVariantOutOfStock && (
+                 <p className="text-right text-xs text-orange-400 mb-2">Max available stock reached</p>
+             )}
 
-             <Button fullWidth size="lg" onClick={handleAdd} disabled={product.stock === 0}>
-               {product.stock === 0 ? 'Out of Stock' : 'Add to Stash'}
+             <Button fullWidth size="lg" onClick={handleAdd} disabled={isVariantOutOfStock}>
+               {isVariantOutOfStock ? 'Variant Out of Stock' : 'Add to Stash'}
              </Button>
           </div>
         </div>
@@ -107,8 +137,8 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
         <h3 className="text-xl font-bold mb-4">You may also like</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 opacity-50">
             {/* Placeholders for related items */}
-            <div className="bg-dark-800 h-40 rounded-xl"></div>
-            <div className="bg-dark-800 h-40 rounded-xl"></div>
+            <div className="bg-dark-800 h-40 rounded-xl border border-gray-800"></div>
+            <div className="bg-dark-800 h-40 rounded-xl border border-gray-800"></div>
         </div>
       </div>
     </div>

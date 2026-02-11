@@ -23,9 +23,10 @@ export enum OrderStatus {
 }
 
 export interface ProductWeight {
-  label: string; // e.g., "1g", "3.5g"
+  label: string; // e.g., "1g", "3.5g", "S", "10pk"
   price: number;
   weightGrams: number;
+  stock: number;
 }
 
 export interface Product {
@@ -37,7 +38,7 @@ export interface Product {
   thcPercentage: number;
   cbdPercentage?: number;
   weights: ProductWeight[];
-  stock: number;
+  stock: number; // Total stock (sum of weights)
   imageUrl: string;
   description: string;
   isPublished: boolean;

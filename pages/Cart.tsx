@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trash2, CheckCircle, CreditCard, Banknote, Bitcoin, MapPin, ShoppingBag } from 'lucide-react';
 import { CartItem, StoreSettings, OrderStatus, Order } from '../types';
 import { Button } from '../components/ui/Button';
@@ -16,6 +16,14 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
   const [deliveryType, setDeliveryType] = useState<'Pickup' | 'Delivery'>('Pickup');
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Card' | 'Online' | 'Crypto'>('Cash');
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', email: '' });
+
+  useEffect(() => {
+    // Auto-fill if available
+    const saved = localStorage.getItem('hs_customer_info');
+    if (saved) {
+        setCustomerInfo(JSON.parse(saved));
+    }
+  }, []);
 
   const total = cart.reduce((acc, item) => acc + (item.selectedWeight.price * item.quantity), 0);
 
@@ -38,6 +46,9 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
     };
 
     storage.saveOrder(newOrder);
+    // Save customer identity for Account page
+    localStorage.setItem('hs_customer_info', JSON.stringify(customerInfo));
+    
     clearCart();
     setStep('success');
     

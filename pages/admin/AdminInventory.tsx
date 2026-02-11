@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw } from 'lucide-react';
+import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2 } from 'lucide-react';
 import { storage } from '../../services/storage';
 import { Category, StrainType, Product, ProductWeight } from '../../types';
 import { generateDescription, analyzeImage, removeBackground } from '../../services/gemini';
@@ -13,26 +13,37 @@ const INITIAL_FORM = {
   flavor: '',
   strain: StrainType.HYBRID,
   thcPercentage: 20,
-  stock: 100,
+  stock: 0,
   imageUrl: '',
   description: '',
   weights: [
-    { label: '3.5g', price: 0, weightGrams: 3.5 },
-    { label: '7g', price: 0, weightGrams: 7 }
+    { label: '3.5g', price: 40, weightGrams: 3.5, stock: 10 },
   ]
 };
 
 export const AdminInventory: React.FC = () => {
   const [form, setForm] = useState(INITIAL_FORM);
-  const [brands, setBrands] = useState<string[]>(['MoonRocks', 'YumYum', 'Cloud9', 'Cookies', 'Jungle Boys']);
+  const [brands, setBrands] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [loadingAI, setLoadingAI] = useState(false);
   const [analyzingImage, setAnalyzingImage] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  
+  // Custom Category State
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
+  // Custom Brand State
+  const [isAddingBrand, setIsAddingBrand] = useState(false);
+  const [newBrandName, setNewBrandName] = useState('');
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setProducts(storage.getProducts());
+    setCategories(storage.getCategories());
+    setBrands(storage.getBrands());
     // Recover unsaved work
     const draft = localStorage.getItem('hs_product_draft');
     if (draft) {
@@ -46,6 +57,14 @@ export const AdminInventory: React.FC = () => {
     localStorage.setItem('hs_product_draft', JSON.stringify(form));
   }, [form]);
 
+  // Sync Total Stock
+  useEffect(() => {
+      const totalStock = form.weights.reduce((acc, w) => acc + (Number(w.stock) || 0), 0);
+      if (totalStock !== form.stock) {
+          setForm(prev => ({ ...prev, stock: totalStock }));
+      }
+  }, [form.weights]);
+
   const handleChange = (field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
@@ -54,6 +73,44 @@ export const AdminInventory: React.FC = () => {
     const newWeights = [...form.weights];
     newWeights[index] = { ...newWeights[index], [field]: value };
     setForm(prev => ({ ...prev, weights: newWeights }));
+  };
+
+  const handleAddWeight = () => {
+    setForm(prev => ({
+        ...prev,
+        weights: [...prev.weights, { label: '', price: 0, weightGrams: 0, stock: 0 }]
+    }));
+  };
+
+  const handleRemoveWeight = (index: number) => {
+      if (form.weights.length > 1) {
+          setForm(prev => ({
+              ...prev,
+              weights: prev.weights.filter((_, i) => i !== index)
+          }));
+      }
+  };
+
+  const handleAddCategory = () => {
+    if (newCategoryName.trim()) {
+        const trimmed = newCategoryName.trim();
+        storage.saveCategory(trimmed);
+        setCategories(storage.getCategories());
+        handleChange('category', trimmed);
+        setNewCategoryName('');
+        setIsAddingCategory(false);
+    }
+  };
+
+  const handleAddBrand = () => {
+    if (newBrandName.trim()) {
+        const trimmed = newBrandName.trim();
+        storage.saveBrand(trimmed);
+        setBrands(storage.getBrands());
+        handleChange('brand', trimmed);
+        setNewBrandName('');
+        setIsAddingBrand(false);
+    }
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,6 +174,12 @@ export const AdminInventory: React.FC = () => {
   };
 
   const handleSave = () => {
+    // Basic validation
+    if (!form.brand || !form.flavor) {
+        alert("Brand and Flavor are required.");
+        return;
+    }
+
     const newProduct: Product = {
         ...form,
         id: form.id || Math.random().toString(36).substr(2, 9),
@@ -205,7 +268,6 @@ export const AdminInventory: React.FC = () => {
                         {removingBg ? 'Processing...' : 'Remove Background (AI)'}
                     </button>
                 )}
-                {/* Placeholder for future tools */}
             </div>
           </div>
 
@@ -213,25 +275,96 @@ export const AdminInventory: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
               <div>
                   <label className="block text-sm text-gray-400 mb-1">Category</label>
-                  <select 
-                    value={form.category}
-                    onChange={e => handleChange('category', e.target.value)}
-                    className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
-                  >
-                      {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
+                  <div className="flex gap-2">
+                    {!isAddingCategory ? (
+                        <>
+                            <select 
+                                value={form.category}
+                                onChange={e => handleChange('category', e.target.value)}
+                                className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
+                            >
+                                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                            <button 
+                                onClick={() => setIsAddingCategory(true)}
+                                className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300 transition-colors"
+                                title="Add New Category"
+                            >
+                                <Plus className="w-5 h-5" />
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <input 
+                                type="text"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                placeholder="New Cat"
+                                className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white focus:border-cannabis-500 outline-none"
+                                autoFocus
+                            />
+                            <button 
+                                onClick={handleAddCategory}
+                                className="p-2.5 bg-cannabis-600 rounded-lg hover:bg-cannabis-500 text-white transition-colors"
+                            >
+                                <Check className="w-5 h-5" />
+                            </button>
+                            <button 
+                                onClick={() => setIsAddingCategory(false)}
+                                className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </>
+                    )}
+                  </div>
               </div>
               <div>
                   <label className="block text-sm text-gray-400 mb-1">Brand</label>
-                  <select 
-                    value={form.brand}
-                    onChange={e => handleChange('brand', e.target.value)}
-                    className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
-                  >
-                      <option value="">Select Brand...</option>
-                      {brands.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                  {/* Assuming quick add brand logic exists or is just simple text input fallback */}
+                  <div className="flex gap-2">
+                    {!isAddingBrand ? (
+                        <>
+                            <select 
+                                value={form.brand}
+                                onChange={e => handleChange('brand', e.target.value)}
+                                className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
+                            >
+                                <option value="">Select Brand...</option>
+                                {brands.map(b => <option key={b} value={b}>{b}</option>)}
+                            </select>
+                            <button 
+                                onClick={() => setIsAddingBrand(true)}
+                                className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300 transition-colors"
+                                title="Add New Brand"
+                            >
+                                <Plus className="w-5 h-5" />
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <input 
+                                type="text"
+                                value={newBrandName}
+                                onChange={(e) => setNewBrandName(e.target.value)}
+                                placeholder="New Brand"
+                                className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white focus:border-cannabis-500 outline-none"
+                                autoFocus
+                            />
+                            <button 
+                                onClick={handleAddBrand}
+                                className="p-2.5 bg-cannabis-600 rounded-lg hover:bg-cannabis-500 text-white transition-colors"
+                            >
+                                <Check className="w-5 h-5" />
+                            </button>
+                            <button 
+                                onClick={() => setIsAddingBrand(false)}
+                                className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </>
+                    )}
+                  </div>
               </div>
           </div>
 
@@ -269,36 +402,66 @@ export const AdminInventory: React.FC = () => {
           </div>
 
           {/* Pricing Weights */}
-          <div>
-              <label className="block text-sm text-gray-400 mb-2">Weight & Pricing</label>
-              {form.weights.map((w, idx) => (
-                  <div key={idx} className="flex gap-2 mb-2">
-                      <input 
-                        className="w-24 bg-dark-900 border border-gray-700 rounded-lg p-2 text-white"
-                        value={w.label}
-                        onChange={e => handleWeightChange(idx, 'label', e.target.value)}
-                      />
-                      <div className="relative flex-1">
-                          <span className="absolute left-3 top-2 text-gray-500">$</span>
-                          <input 
-                            type="number"
-                            className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2 pl-6 text-white"
-                            value={w.price}
-                            onChange={e => handleWeightChange(idx, 'price', Number(e.target.value))}
-                          />
-                      </div>
-                  </div>
-              ))}
+          <div className="bg-dark-900/50 p-4 rounded-xl border border-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-bold text-gray-300">Product Variants</label>
+                  <span className="text-xs text-gray-500">Manage price & stock per size</span>
+              </div>
+              
+              <div className="space-y-2">
+                {form.weights.map((w, idx) => (
+                    <div key={idx} className="flex gap-2 items-start">
+                        <div className="flex-1">
+                            <label className="text-[10px] text-gray-500 uppercase font-bold pl-1 mb-0.5 block">Variation / Size</label>
+                            <input 
+                                className="w-full bg-dark-800 border border-gray-700 rounded-lg p-2 text-white text-sm placeholder-gray-600"
+                                value={w.label}
+                                onChange={e => handleWeightChange(idx, 'label', e.target.value)}
+                                placeholder="e.g. 3.5g, 10pk"
+                            />
+                        </div>
+                        <div className="w-24">
+                             <label className="text-[10px] text-gray-500 uppercase font-bold pl-1 mb-0.5 block">Price ($)</label>
+                             <input 
+                                type="number"
+                                className="w-full bg-dark-800 border border-gray-700 rounded-lg p-2 text-white text-sm"
+                                value={w.price}
+                                onChange={e => handleWeightChange(idx, 'price', Number(e.target.value))}
+                            />
+                        </div>
+                        <div className="w-20">
+                             <label className="text-[10px] text-gray-500 uppercase font-bold pl-1 mb-0.5 block">Stock</label>
+                             <input 
+                                type="number"
+                                className="w-full bg-dark-800 border border-gray-700 rounded-lg p-2 text-white text-sm"
+                                value={w.stock}
+                                onChange={e => handleWeightChange(idx, 'stock', Number(e.target.value))}
+                            />
+                        </div>
+                        <div className="pt-6">
+                            <button 
+                                onClick={() => handleRemoveWeight(idx)}
+                                className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                                disabled={form.weights.length <= 1}
+                            >
+                                <Trash2 className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+              </div>
+              
+              <button 
+                onClick={handleAddWeight}
+                className="mt-4 flex items-center gap-2 text-sm font-medium text-cannabis-500 hover:text-cannabis-400 transition-colors"
+              >
+                  <Plus className="w-4 h-4" /> Add Variation
+              </button>
           </div>
           
-          <div>
-              <label className="block text-sm text-gray-400 mb-1">Total Stock</label>
-               <input 
-                type="number" 
-                value={form.stock}
-                onChange={e => handleChange('stock', Number(e.target.value))}
-                className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
-              />
+          <div className="flex items-center justify-between p-3 bg-dark-900 rounded-lg border border-gray-700">
+              <span className="text-gray-400 text-sm">Total Inventory Count</span>
+              <span className="text-xl font-bold text-white">{form.stock}</span>
           </div>
 
           {/* AI Description */}
@@ -345,7 +508,12 @@ export const AdminInventory: React.FC = () => {
                         </div>
                         <div className="text-right">
                              <div className="font-bold text-white">${p.weights[0].price}</div>
-                             <div className={`text-xs ${p.stock > 0 ? 'text-green-500' : 'text-red-500'}`}>{p.stock} left</div>
+                             <div className={`text-xs font-medium px-2 py-0.5 rounded-full mt-1 inline-flex items-center gap-1
+                                ${p.stock === 0 ? 'bg-red-900/30 text-red-400 border border-red-500/30' : 
+                                  p.stock < 10 ? 'bg-orange-900/30 text-orange-400 border border-orange-500/30' : 
+                                  'bg-green-900/30 text-green-400 border border-green-500/30'}`}>
+                                {p.stock === 0 ? 'Sold Out' : `${p.stock} Left`}
+                             </div>
                         </div>
                     </div>
                 ))}
