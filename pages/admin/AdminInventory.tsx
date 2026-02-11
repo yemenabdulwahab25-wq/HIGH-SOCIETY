@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Upload, Sparkles, Save, X } from 'lucide-react';
+import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw } from 'lucide-react';
 import { storage } from '../../services/storage';
 import { Category, StrainType, Product, ProductWeight } from '../../types';
-import { generateDescription, analyzeImage } from '../../services/gemini';
+import { generateDescription, analyzeImage, removeBackground } from '../../services/gemini';
 import { Button } from '../../components/ui/Button';
 
 // Default Form State
@@ -27,6 +27,7 @@ export const AdminInventory: React.FC = () => {
   const [brands, setBrands] = useState<string[]>(['MoonRocks', 'YumYum', 'Cloud9', 'Cookies', 'Jungle Boys']);
   const [loadingAI, setLoadingAI] = useState(false);
   const [analyzingImage, setAnalyzingImage] = useState(false);
+  const [removingBg, setRemovingBg] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -86,11 +87,33 @@ export const AdminInventory: React.FC = () => {
     }
   };
 
+  const handleRemoveBg = async (e: React.MouseEvent) => {
+      e.stopPropagation(); // Prevent file input trigger
+      if (!form.imageUrl) return;
+      
+      setRemovingBg(true);
+      const newImage = await removeBackground(form.imageUrl);
+      setRemovingBg(false);
+      
+      if (newImage) {
+          handleChange('imageUrl', newImage);
+      } else {
+          alert("Could not process image background. Try again.");
+      }
+  };
+
   const handleGenerateDescription = async () => {
     setLoadingAI(true);
     const desc = await generateDescription(form.brand, form.flavor, form.strain);
     handleChange('description', desc);
     setLoadingAI(false);
+  };
+
+  const handleClear = () => {
+    if (window.confirm("Are you sure you want to clear the form? Unsaved changes will be lost.")) {
+      setForm({ ...INITIAL_FORM, id: '' });
+      localStorage.removeItem('hs_product_draft');
+    }
   };
 
   const handleSave = () => {
@@ -107,7 +130,7 @@ export const AdminInventory: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-20">
       <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-white">Inventory Master</h1>
           <div className="text-xs text-green-500 flex items-center gap-1">
@@ -126,16 +149,22 @@ export const AdminInventory: React.FC = () => {
             <label className="text-sm font-medium text-gray-400">Product Photo</label>
             <div 
                 onClick={() => fileInputRef.current?.click()}
-                className="relative h-48 w-full border-2 border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-cannabis-500 hover:bg-dark-700 transition-all overflow-hidden"
+                className="relative h-64 w-full border-2 border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-cannabis-500 hover:bg-dark-700 transition-all overflow-hidden group"
             >
                 {form.imageUrl ? (
-                    <img src={form.imageUrl} className="w-full h-full object-contain bg-white" alt="Preview" />
+                    <>
+                        <img src={form.imageUrl} className="w-full h-full object-contain bg-dark-950" alt="Preview" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-white font-medium flex items-center gap-2"><Camera className="w-5 h-5"/> Change Photo</span>
+                        </div>
+                    </>
                 ) : (
                     <>
                         <Camera className="w-10 h-10 text-gray-500 mb-2" />
                         <span className="text-gray-400">Tap to Capture / Upload</span>
                     </>
                 )}
+                
                 <input 
                     type="file" 
                     accept="image/*" 
@@ -144,14 +173,40 @@ export const AdminInventory: React.FC = () => {
                     className="hidden" 
                     onChange={handleImageUpload}
                 />
+                
                 {analyzingImage && (
-                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                        <div className="text-cannabis-500 font-bold animate-pulse">AI Scanning...</div>
+                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-10">
+                        <div className="text-cannabis-500 font-bold animate-pulse flex flex-col items-center">
+                            <Sparkles className="w-8 h-8 mb-2 animate-spin" />
+                            AI Scanning Info...
+                        </div>
+                    </div>
+                )}
+
+                {removingBg && (
+                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-10">
+                         <div className="text-blue-400 font-bold animate-pulse flex flex-col items-center">
+                            <Wand2 className="w-8 h-8 mb-2 animate-bounce" />
+                            Removing Background...
+                        </div>
                     </div>
                 )}
             </div>
-            {/* Mock BG Removal Feedback */}
-            {form.imageUrl && <div className="text-xs text-green-500 flex items-center gap-1"><Sparkles className="w-3 h-3"/> Background Auto-Removed</div>}
+            
+            {/* AI Tools Bar */}
+            <div className="flex gap-2">
+                {form.imageUrl && (
+                    <button 
+                        onClick={handleRemoveBg}
+                        disabled={removingBg}
+                        className="flex-1 bg-dark-700 border border-gray-600 hover:bg-dark-600 text-white text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                    >
+                        <Wand2 className="w-3 h-3 text-blue-400" />
+                        {removingBg ? 'Processing...' : 'Remove Background (AI)'}
+                    </button>
+                )}
+                {/* Placeholder for future tools */}
+            </div>
           </div>
 
           {/* Core Fields */}
@@ -266,9 +321,14 @@ export const AdminInventory: React.FC = () => {
              />
           </div>
 
-          <Button fullWidth size="lg" onClick={handleSave} className="mt-4">
-              <Save className="w-5 h-5 mr-2" /> Save & Publish
-          </Button>
+          <div className="flex gap-3 mt-4">
+            <Button variant="secondary" onClick={handleClear} className="w-1/3">
+              <RotateCcw className="w-4 h-4 mr-2" /> Clear
+            </Button>
+            <Button fullWidth size="lg" onClick={handleSave} className="flex-1">
+                <Save className="w-5 h-5 mr-2" /> Save & Publish
+            </Button>
+          </div>
 
         </div>
 

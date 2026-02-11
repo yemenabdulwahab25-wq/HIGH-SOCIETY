@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, User, LogOut, Menu } from 'lucide-react';
+import { ShoppingBag, User, LogOut, Menu, Users } from 'lucide-react';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -53,6 +53,7 @@ export const Layout = ({ children, isAdmin, cartCount = 0 }: LayoutProps) => {
              </div>
              <nav className="hidden md:flex items-center gap-6">
                <Link to="/admin/dashboard" className={`text-sm font-medium ${location.pathname.includes('dashboard') ? 'text-cannabis-500' : 'text-gray-400'}`}>Dashboard</Link>
+               <Link to="/admin/customers" className={`text-sm font-medium ${location.pathname.includes('customers') ? 'text-cannabis-500' : 'text-gray-400'}`}>Clients</Link>
                <Link to="/admin/inventory" className={`text-sm font-medium ${location.pathname.includes('inventory') ? 'text-cannabis-500' : 'text-gray-400'}`}>Add Product</Link>
                <Link to="/admin/settings" className={`text-sm font-medium ${location.pathname.includes('settings') ? 'text-cannabis-500' : 'text-gray-400'}`}>Settings</Link>
              </nav>
@@ -76,9 +77,13 @@ export const Layout = ({ children, isAdmin, cartCount = 0 }: LayoutProps) => {
              <div className={`w-1 h-1 rounded-full ${location.pathname.includes('dashboard') ? 'bg-cannabis-500' : 'bg-transparent'}`} />
              <span className={`text-xs ${location.pathname.includes('dashboard') ? 'text-white' : 'text-gray-500'}`}>Orders</span>
            </Link>
+           <Link to="/admin/customers" className="flex flex-col items-center gap-1">
+             <div className={`w-1 h-1 rounded-full ${location.pathname.includes('customers') ? 'bg-cannabis-500' : 'bg-transparent'}`} />
+             <span className={`text-xs ${location.pathname.includes('customers') ? 'text-white' : 'text-gray-500'}`}>Clients</span>
+           </Link>
            <Link to="/admin/inventory" className="flex flex-col items-center gap-1">
              <div className={`w-1 h-1 rounded-full ${location.pathname.includes('inventory') ? 'bg-cannabis-500' : 'bg-transparent'}`} />
-             <span className={`text-xs ${location.pathname.includes('inventory') ? 'text-white' : 'text-gray-500'}`}>Add Product</span>
+             <span className={`text-xs ${location.pathname.includes('inventory') ? 'text-white' : 'text-gray-500'}`}>Add</span>
            </Link>
            <Link to="/admin/settings" className="flex flex-col items-center gap-1">
              <div className={`w-1 h-1 rounded-full ${location.pathname.includes('settings') ? 'bg-cannabis-500' : 'bg-transparent'}`} />

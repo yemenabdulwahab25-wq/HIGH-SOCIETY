@@ -55,3 +55,40 @@ export const analyzeImage = async (base64Image: string): Promise<Partial<Product
         return {};
     }
 }
+
+export const removeBackground = async (base64Image: string): Promise<string | null> => {
+    if (!apiKey) return null;
+    try {
+        const model = 'gemini-2.5-flash-image';
+        const match = base64Image.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+        if (!match) return null;
+        
+        const mimeType = match[1];
+        const data = match[2];
+
+        // Prompt for editing/generating the image with a new background
+        const prompt = "Remove the background from this product image. Isolate the product on a solid black background (hex code #000000). Keep the product sharp and centered. Professional product photography.";
+
+        const response = await ai.models.generateContent({
+            model,
+            contents: {
+                parts: [
+                    { inlineData: { mimeType, data } },
+                    { text: prompt }
+                ]
+            }
+        });
+
+        if (response.candidates?.[0]?.content?.parts) {
+             for (const part of response.candidates[0].content.parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    return `data:image/png;base64,${part.inlineData.data}`;
+                }
+             }
+        }
+        return null;
+    } catch (e) {
+        console.error("Background removal failed", e);
+        return null;
+    }
+}
