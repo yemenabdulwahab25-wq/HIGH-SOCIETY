@@ -4,6 +4,7 @@ import { Layout } from './components/Layout';
 import { Storefront } from './pages/Storefront';
 import { ProductDetails } from './pages/ProductDetails';
 import { Cart } from './pages/Cart';
+import { StoreAccess } from './pages/StoreAccess';
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminInventory } from './pages/admin/AdminInventory';
@@ -16,6 +17,18 @@ import { CartItem, Product, StoreSettings } from './types';
 const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
   const isAuth = localStorage.getItem('hs_admin_auth') === 'true';
   if (!isAuth) return <Navigate to="/admin" replace />;
+  return <>{children}</>;
+};
+
+// Wrapper for Customer Routes to ensure Access Code if enabled
+const CustomerRoute = ({ children, settings }: { children?: React.ReactNode, settings: StoreSettings }) => {
+  if (settings.access?.enabled) {
+     const enteredCode = localStorage.getItem('hs_customer_entered_code');
+     // If the code has changed or user hasn't entered it, redirect
+     if (enteredCode !== settings.access.code) {
+       return <Navigate to="/access" replace />;
+     }
+  }
   return <>{children}</>;
 };
 
@@ -56,10 +69,31 @@ const AppContent = () => {
 
   return (
     <Routes>
-      {/* Customer Routes */}
-      <Route path="/" element={<Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)}><Storefront settings={settings} /></Layout>} />
-      <Route path="/product/:id" element={<Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)}><ProductDetails addToCart={addToCart} /></Layout>} />
-      <Route path="/cart" element={<Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)}><Cart cart={cart} removeFromCart={removeFromCart} clearCart={clearCart} settings={settings} /></Layout>} />
+      {/* Access Gate */}
+      <Route path="/access" element={<StoreAccess settings={settings} />} />
+
+      {/* Customer Routes (Protected if enabled) */}
+      <Route path="/" element={
+        <CustomerRoute settings={settings}>
+          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)}>
+            <Storefront settings={settings} />
+          </Layout>
+        </CustomerRoute>
+      } />
+      <Route path="/product/:id" element={
+        <CustomerRoute settings={settings}>
+          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)}>
+            <ProductDetails addToCart={addToCart} />
+          </Layout>
+        </CustomerRoute>
+      } />
+      <Route path="/cart" element={
+        <CustomerRoute settings={settings}>
+          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)}>
+            <Cart cart={cart} removeFromCart={removeFromCart} clearCart={clearCart} settings={settings} />
+          </Layout>
+        </CustomerRoute>
+      } />
       
       {/* Admin Routes */}
       <Route path="/admin" element={<AdminLogin />} />

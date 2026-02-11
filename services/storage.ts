@@ -86,7 +86,20 @@ export const storage = {
   },
   getSettings: (): StoreSettings => {
     const data = localStorage.getItem(KEYS.SETTINGS);
-    return data ? JSON.parse(data) : DEFAULT_SETTINGS;
+    if (!data) return DEFAULT_SETTINGS;
+    
+    // Deep merge to ensure new settings (like access) are present even if local storage is old
+    const parsed = JSON.parse(data);
+    return {
+        ...DEFAULT_SETTINGS,
+        ...parsed,
+        access: { ...DEFAULT_SETTINGS.access, ...(parsed.access || {}) },
+        payments: { ...DEFAULT_SETTINGS.payments, ...(parsed.payments || {}) },
+        loyalty: { ...DEFAULT_SETTINGS.loyalty, ...(parsed.loyalty || {}) },
+        messages: { ...DEFAULT_SETTINGS.messages, ...(parsed.messages || {}) },
+        visibility: { ...DEFAULT_SETTINGS.visibility, ...(parsed.visibility || {}) },
+        delivery: { ...DEFAULT_SETTINGS.delivery, ...(parsed.delivery || {}) },
+    };
   },
   saveSettings: (settings: StoreSettings) => {
     localStorage.setItem(KEYS.SETTINGS, JSON.stringify(settings));

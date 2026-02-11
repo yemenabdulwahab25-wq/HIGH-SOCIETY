@@ -62,6 +62,10 @@ export interface Order {
 
 export interface StoreSettings {
   storeName: string;
+  access: {
+    enabled: boolean;
+    code: string;
+  };
   payments: {
     online: boolean;
     cashInStore: boolean;
@@ -87,6 +91,10 @@ export interface StoreSettings {
 
 export const DEFAULT_SETTINGS: StoreSettings = {
   storeName: "Billionaire Level",
+  access: {
+    enabled: false,
+    code: "420",
+  },
   payments: {
     online: false,
     cashInStore: true,

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StoreSettings } from '../../types';
 import { storage } from '../../services/storage';
+import { Lock, Shield } from 'lucide-react';
 
 interface AdminSettingsProps {
   settings: StoreSettings;
@@ -31,7 +32,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
   };
 
   const Toggle = ({ label, checked, onChange }: { label: string, checked: boolean, onChange: (v: boolean) => void }) => (
-      <div className="flex items-center justify-between py-3 border-b border-gray-800">
+      <div className="flex items-center justify-between py-3 border-b border-gray-800 last:border-0">
           <span className="text-gray-300 font-medium">{label}</span>
           <button 
             onClick={() => onChange(!checked)}
@@ -59,6 +60,38 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
                 placeholder="e.g. Billionaire Level"
               />
           </div>
+      </section>
+
+      {/* Store Access / Security */}
+      <section className="bg-dark-800 rounded-xl p-6 border border-gray-700 relative overflow-hidden">
+          <div className="flex items-center gap-2 mb-4">
+              <Shield className="w-5 h-5 text-cannabis-500" />
+              <h2 className="text-xl font-bold text-white text-cannabis-400">Store Security</h2>
+          </div>
+          <div className="bg-dark-900/50 p-4 rounded-lg border border-gray-700 mb-4">
+               <p className="text-sm text-gray-400 mb-2">When enabled, visitors must enter a code to view your products.</p>
+               <Toggle 
+                    label="Restrict Store Access" 
+                    checked={settings.access.enabled} 
+                    onChange={(v) => updateSetting('access', 'enabled', v)} 
+               />
+          </div>
+          
+          {settings.access.enabled && (
+               <div className="animate-in fade-in slide-in-from-top-2">
+                    <label className="text-sm text-gray-400 mb-1 block">Access Code (PIN)</label>
+                    <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                        <input 
+                            type="text" 
+                            value={settings.access.code}
+                            onChange={(e) => updateSetting('access', 'code', e.target.value)}
+                            className="w-full bg-dark-900 border border-gray-700 rounded-lg pl-10 pr-3 py-3 text-white font-mono tracking-wider"
+                            placeholder="e.g. 4200"
+                        />
+                    </div>
+               </div>
+          )}
       </section>
 
       {/* Payment Settings */}
