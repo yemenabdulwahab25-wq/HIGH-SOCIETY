@@ -20,6 +20,15 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
     storage.saveSettings(newSettings);
     onUpdate(newSettings);
   };
+  
+  const updateRootSetting = (key: keyof StoreSettings, value: any) => {
+      const newSettings = {
+          ...settings,
+          [key]: value
+      };
+      storage.saveSettings(newSettings);
+      onUpdate(newSettings);
+  };
 
   const Toggle = ({ label, checked, onChange }: { label: string, checked: boolean, onChange: (v: boolean) => void }) => (
       <div className="flex items-center justify-between py-3 border-b border-gray-800">
@@ -36,6 +45,21 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
   return (
     <div className="max-w-2xl mx-auto space-y-8 pb-20">
       <h1 className="text-3xl font-bold text-white">Store Settings</h1>
+      
+      {/* General Settings */}
+      <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
+          <h2 className="text-xl font-bold text-white mb-4 text-cannabis-400">General</h2>
+          <div>
+              <label className="text-sm text-gray-400 mb-1 block">Store Name</label>
+              <input 
+                type="text" 
+                value={settings.storeName}
+                onChange={(e) => updateRootSetting('storeName', e.target.value)}
+                className="w-full bg-dark-900 border border-gray-700 rounded-lg p-3 text-white"
+                placeholder="e.g. Billionaire Level"
+              />
+          </div>
+      </section>
 
       {/* Payment Settings */}
       <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">

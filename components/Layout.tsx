@@ -22,9 +22,9 @@ export const Layout = ({ children, isAdmin, cartCount = 0 }: LayoutProps) => {
           <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
             <Link to="/" className="flex items-center gap-2">
                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cannabis-600 to-gold-400 flex items-center justify-center">
-                 <span className="text-white font-bold text-xs">HS</span>
+                 <span className="text-white font-bold text-xs">BL</span>
                </div>
-               <span className="font-bold text-lg tracking-tight text-white">HIGH SOCIETY</span>
+               <span className="font-bold text-lg tracking-tight text-white">BILLIONAIRE LEVEL</span>
             </Link>
             
             <div className="flex items-center gap-4">

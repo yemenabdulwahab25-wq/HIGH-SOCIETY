@@ -86,7 +86,7 @@ export interface StoreSettings {
 }
 
 export const DEFAULT_SETTINGS: StoreSettings = {
-  storeName: "High Society",
+  storeName: "Billionaire Level",
   payments: {
     online: false,
     cashInStore: true,
@@ -99,7 +99,7 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   },
   messages: {
     enabled: true,
-    template: "Thanks for shopping with High Society! Enjoy your lift-off.",
+    template: "Thanks for shopping with us! Enjoy your lift-off.",
   },
   visibility: {
     localTraffic: true,

@@ -12,7 +12,7 @@ import { storage } from './services/storage';
 import { CartItem, Product, StoreSettings } from './types';
 
 // Wrapper for Admin Routes to ensure auth
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
   const isAuth = localStorage.getItem('hs_admin_auth') === 'true';
   if (!isAuth) return <Navigate to="/admin" replace />;
   return <>{children}</>;
