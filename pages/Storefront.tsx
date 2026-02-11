@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Share2 } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Product, StoreSettings, Category } from '../types';
 
@@ -36,12 +36,38 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
     return matchesSearch && matchesCategory && matchesBrand;
   });
 
+  const handleShare = () => {
+    const shareData = {
+      title: settings.storeName,
+      text: `Check out ${settings.storeName} - Premium Cannabis Delivery`,
+      url: window.location.origin + window.location.pathname
+    };
+
+    if (navigator.share) {
+      navigator.share(shareData).catch((err) => console.log('Share dismissed', err));
+    } else {
+      navigator.clipboard.writeText(shareData.url);
+      alert('Store link copied to clipboard!');
+    }
+  };
+
   return (
     <div className="space-y-6 pb-20">
       {/* Hero / Welcome */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-cannabis-900 to-dark-900 p-8 border border-white/5">
-        <h1 className="text-3xl font-bold text-white mb-2">Welcome to {settings.storeName}</h1>
-        <p className="text-gray-300">Elevate your experience. Premium selection only.</p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 className="text-3xl font-bold text-white mb-2">Welcome to {settings.storeName}</h1>
+                <p className="text-gray-300">Elevate your experience. Premium selection only.</p>
+            </div>
+            <button 
+                onClick={handleShare}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl backdrop-blur-md border border-white/10 transition-colors"
+            >
+                <Share2 className="w-5 h-5 text-cannabis-400" />
+                <span className="font-medium">Share Store</span>
+            </button>
+        </div>
       </div>
 
       {/* Search & Filter */}
