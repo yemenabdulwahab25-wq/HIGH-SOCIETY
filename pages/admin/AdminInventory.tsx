@@ -226,8 +226,23 @@ export const AdminInventory: React.FC = () => {
                 {form.imageUrl ? (
                     <>
                         <img src={form.imageUrl} className="w-full h-full object-contain bg-dark-950" alt="Preview" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <span className="text-white font-medium flex items-center gap-2"><Camera className="w-5 h-5"/> Change Photo</span>
+                        
+                        {/* Floating Action Buttons */}
+                         <div className="absolute top-3 right-3 flex gap-2 z-30" onClick={(e) => e.stopPropagation()}>
+                             <button
+                                onClick={handleRemoveBg}
+                                disabled={removingBg}
+                                className="flex items-center gap-1.5 bg-dark-900/90 hover:bg-dark-800 text-white text-xs font-medium py-1.5 px-3 rounded-lg border border-gray-600 backdrop-blur-md transition-all shadow-xl"
+                                title="Remove Background with AI"
+                            >
+                                <Wand2 className={`w-3.5 h-3.5 ${removingBg ? 'animate-spin text-gray-400' : 'text-blue-400'}`} />
+                                {removingBg ? 'Fixing...' : 'Remove BG'}
+                            </button>
+                        </div>
+
+                        {/* Hover Overlay for Change Photo */}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
+                            <span className="text-white font-medium flex items-center gap-2 bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm"><Camera className="w-4 h-4"/> Change Photo</span>
                         </div>
                     </>
                 ) : (
@@ -247,7 +262,7 @@ export const AdminInventory: React.FC = () => {
                 />
                 
                 {analyzingImage && (
-                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-10">
+                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-40">
                         <div className="text-cannabis-500 font-bold animate-pulse flex flex-col items-center">
                             <Sparkles className="w-8 h-8 mb-2 animate-spin" />
                             AI Scanning Info...
@@ -256,26 +271,12 @@ export const AdminInventory: React.FC = () => {
                 )}
 
                 {removingBg && (
-                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-10">
+                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-40">
                          <div className="text-blue-400 font-bold animate-pulse flex flex-col items-center">
                             <Wand2 className="w-8 h-8 mb-2 animate-bounce" />
                             Removing Background...
                         </div>
                     </div>
-                )}
-            </div>
-            
-            {/* AI Tools Bar */}
-            <div className="flex gap-2">
-                {form.imageUrl && (
-                    <button 
-                        onClick={handleRemoveBg}
-                        disabled={removingBg}
-                        className="flex-1 bg-dark-700 border border-gray-600 hover:bg-dark-600 text-white text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-                    >
-                        <Wand2 className="w-3 h-3 text-blue-400" />
-                        {removingBg ? 'Processing...' : 'Remove Background (AI)'}
-                    </button>
                 )}
             </div>
           </div>
