@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
-import { StoreSettings } from '../../types';
+import { StoreSettings, HolidayTheme } from '../../types';
 import { storage } from '../../services/storage';
-import { Lock, Shield, Tag, X, FolderOpen } from 'lucide-react';
+import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2 } from 'lucide-react';
 
 interface AdminSettingsProps {
   settings: StoreSettings;
@@ -11,6 +12,17 @@ interface AdminSettingsProps {
 export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate }) => {
   const [categories, setCategories] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
+  const [showAddHoliday, setShowAddHoliday] = useState(false);
+  
+  // New Holiday Form State
+  const [newHoliday, setNewHoliday] = useState<Partial<HolidayTheme>>({
+      name: '',
+      month: 1,
+      day: 1,
+      colors: { primary: '#10b981', accent: '#fbbf24' },
+      icon: '🎉',
+      enabled: true
+  });
 
   useEffect(() => {
     const load = () => {
@@ -47,6 +59,31 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
       };
       storage.saveSettings(newSettings);
       onUpdate(newSettings);
+  };
+
+  const handleAddHoliday = () => {
+      if (!newHoliday.name) return;
+      const holiday: HolidayTheme = {
+          id: Math.random().toString(36).substr(2, 9),
+          name: newHoliday.name!,
+          month: newHoliday.month!,
+          day: newHoliday.day!,
+          colors: newHoliday.colors!,
+          icon: newHoliday.icon || '🎉',
+          enabled: true
+      };
+      
+      const updatedHolidays = [...(settings.holidays || []), holiday];
+      updateRootSetting('holidays', updatedHolidays);
+      setShowAddHoliday(false);
+      setNewHoliday({ name: '', month: 1, day: 1, colors: { primary: '#10b981', accent: '#fbbf24' }, icon: '🎉', enabled: true });
+  };
+
+  const handleDeleteHoliday = (id: string) => {
+      if (window.confirm("Delete this holiday theme?")) {
+          const updatedHolidays = settings.holidays.filter(h => h.id !== id);
+          updateRootSetting('holidays', updatedHolidays);
+      }
   };
 
   const handleDeleteCategory = (cat: string) => {
@@ -89,6 +126,106 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
                 className="w-full bg-dark-900 border border-gray-700 rounded-lg p-3 text-white"
                 placeholder="e.g. Billionaire Level"
               />
+          </div>
+      </section>
+
+      {/* Holiday Themes */}
+      <section className="bg-dark-800 rounded-xl p-6 border border-gray-700 relative overflow-hidden">
+          <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-cannabis-500" />
+                  <h2 className="text-xl font-bold text-white text-cannabis-400">Holiday Themes</h2>
+              </div>
+              <button 
+                onClick={() => setShowAddHoliday(!showAddHoliday)}
+                className="flex items-center gap-1 text-xs bg-dark-700 hover:bg-dark-600 px-3 py-1.5 rounded-lg text-white transition-colors"
+              >
+                  <Plus className="w-4 h-4" /> Add Event
+              </button>
+          </div>
+
+          <p className="text-sm text-gray-400 mb-4">Themes automatically apply on these dates.</p>
+
+          {showAddHoliday && (
+              <div className="bg-dark-900 p-4 rounded-xl border border-gray-700 mb-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="grid grid-cols-2 gap-4 mb-3">
+                      <input 
+                        placeholder="Event Name (e.g. 4/20)" 
+                        className="bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm"
+                        value={newHoliday.name}
+                        onChange={e => setNewHoliday({...newHoliday, name: e.target.value})}
+                      />
+                      <input 
+                        placeholder="Icon (e.g. 🌿)" 
+                        className="bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm"
+                        value={newHoliday.icon}
+                        onChange={e => setNewHoliday({...newHoliday, icon: e.target.value})}
+                      />
+                  </div>
+                  <div className="flex gap-4 mb-3">
+                      <div className="flex-1">
+                          <label className="text-xs text-gray-500 block mb-1">Month</label>
+                          <input type="number" min="1" max="12" className="w-full bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm" 
+                            value={newHoliday.month} onChange={e => setNewHoliday({...newHoliday, month: Number(e.target.value)})} />
+                      </div>
+                      <div className="flex-1">
+                          <label className="text-xs text-gray-500 block mb-1">Day</label>
+                          <input type="number" min="1" max="31" className="w-full bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm" 
+                             value={newHoliday.day} onChange={e => setNewHoliday({...newHoliday, day: Number(e.target.value)})} />
+                      </div>
+                  </div>
+                  <div className="flex gap-4 mb-4">
+                      <div className="flex-1">
+                          <label className="text-xs text-gray-500 block mb-1">Primary Color</label>
+                          <div className="flex gap-2">
+                              <input type="color" className="h-9 bg-transparent rounded cursor-pointer" 
+                                value={newHoliday.colors?.primary} 
+                                onChange={e => setNewHoliday({...newHoliday, colors: { ...newHoliday.colors!, primary: e.target.value }})} 
+                              />
+                              <span className="text-xs text-gray-400 self-center">{newHoliday.colors?.primary}</span>
+                          </div>
+                      </div>
+                      <div className="flex-1">
+                          <label className="text-xs text-gray-500 block mb-1">Accent Color</label>
+                          <div className="flex gap-2">
+                              <input type="color" className="h-9 bg-transparent rounded cursor-pointer" 
+                                value={newHoliday.colors?.accent} 
+                                onChange={e => setNewHoliday({...newHoliday, colors: { ...newHoliday.colors!, accent: e.target.value }})} 
+                              />
+                              <span className="text-xs text-gray-400 self-center">{newHoliday.colors?.accent}</span>
+                          </div>
+                      </div>
+                  </div>
+                  <button onClick={handleAddHoliday} className="w-full bg-cannabis-600 hover:bg-cannabis-500 text-white font-bold py-2 rounded-lg">Save Holiday</button>
+              </div>
+          )}
+
+          <div className="space-y-2">
+              {settings.holidays?.map(h => (
+                  <div key={h.id} className="flex items-center justify-between p-3 bg-dark-900 border border-gray-800 rounded-xl">
+                      <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl bg-dark-800 border border-gray-700">
+                              {h.icon}
+                          </div>
+                          <div>
+                              <div className="font-bold text-white text-sm">{h.name}</div>
+                              <div className="text-xs text-gray-500">Date: {h.month}/{h.day}</div>
+                          </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                          <div className="flex gap-1">
+                              <div className="w-4 h-4 rounded-full border border-white/10" style={{backgroundColor: h.colors.primary}} title="Primary"></div>
+                              <div className="w-4 h-4 rounded-full border border-white/10" style={{backgroundColor: h.colors.accent}} title="Accent"></div>
+                          </div>
+                          <button onClick={() => handleDeleteHoliday(h.id)} className="text-gray-500 hover:text-red-500">
+                              <Trash2 className="w-4 h-4" />
+                          </button>
+                      </div>
+                  </div>
+              ))}
+              {(!settings.holidays || settings.holidays.length === 0) && (
+                  <div className="text-center py-4 text-gray-500 text-sm">No holidays configured.</div>
+              )}
           </div>
       </section>
 

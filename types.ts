@@ -1,3 +1,4 @@
+
 export enum StrainType {
   INDICA = 'Indica',
   SATIVA = 'Sativa',
@@ -61,6 +62,19 @@ export interface Order {
   paymentMethod: 'Cash' | 'Card' | 'Online' | 'Crypto';
 }
 
+export interface HolidayTheme {
+  id: string;
+  name: string;
+  month: number; // 1-12
+  day: number;   // 1-31
+  colors: {
+    primary: string; // Replaces cannabis-500/600
+    accent: string;  // Replaces gold-400/500
+  };
+  icon: string; // Emoji or short text
+  enabled: boolean;
+}
+
 export interface StoreSettings {
   storeName: string;
   access: {
@@ -87,7 +101,8 @@ export interface StoreSettings {
   };
   delivery: {
     enabled: boolean;
-  }
+  };
+  holidays: HolidayTheme[];
 }
 
 export const DEFAULT_SETTINGS: StoreSettings = {
@@ -116,5 +131,6 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   },
   delivery: {
     enabled: false,
-  }
+  },
+  holidays: [] // Populated in storage.ts
 };

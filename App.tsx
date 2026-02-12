@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -6,7 +7,7 @@ import { ProductDetails } from './pages/ProductDetails';
 import { Cart } from './pages/Cart';
 import { Account } from './pages/Account';
 import { StoreAccess } from './pages/StoreAccess';
-import { Guide } from './pages/Guide'; // Import Guide
+import { Guide } from './pages/Guide';
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminInventory } from './pages/admin/AdminInventory';
@@ -34,9 +35,42 @@ const CustomerRoute = ({ children, settings }: { children?: React.ReactNode, set
   return <>{children}</>;
 };
 
+// Theme Controller Hook
+const useHolidayTheme = (settings: StoreSettings) => {
+  useEffect(() => {
+    const today = new Date();
+    const currentMonth = today.getMonth() + 1; // 0-indexed
+    const currentDay = today.getDate();
+
+    const activeHoliday = settings.holidays?.find(
+        h => h.enabled && h.month === currentMonth && h.day === currentDay
+    );
+
+    const root = document.documentElement;
+
+    if (activeHoliday) {
+        root.style.setProperty('--theme-primary', activeHoliday.colors.primary);
+        root.style.setProperty('--theme-primary-hover', activeHoliday.colors.primary); // Simplify for now
+        root.style.setProperty('--theme-accent', activeHoliday.colors.accent);
+        root.style.setProperty('--theme-accent-hover', activeHoliday.colors.accent);
+        console.log(`🎉 Holiday Theme Activated: ${activeHoliday.name}`);
+    } else {
+        // Reset to Defaults
+        root.style.setProperty('--theme-primary', '#10b981');
+        root.style.setProperty('--theme-primary-hover', '#059669');
+        root.style.setProperty('--theme-accent', '#fbbf24');
+        root.style.setProperty('--theme-accent-hover', '#f59e0b');
+    }
+
+  }, [settings.holidays]);
+};
+
 const AppContent = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [settings, setSettings] = useState<StoreSettings>(storage.getSettings());
+
+  // Activate Holiday Themes
+  useHolidayTheme(settings);
 
   // Load cart from local storage on mount
   useEffect(() => {

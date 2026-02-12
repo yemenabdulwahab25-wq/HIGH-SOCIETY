@@ -1,4 +1,5 @@
-import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category } from '../types';
+
+import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category, HolidayTheme } from '../types';
 
 const KEYS = {
   PRODUCTS: 'hs_products',
@@ -56,6 +57,45 @@ const INITIAL_PRODUCTS: Product[] = [
   }
 ];
 
+const DEFAULT_HOLIDAYS: HolidayTheme[] = [
+  {
+    id: '420',
+    name: '4/20 Celebration',
+    month: 4,
+    day: 20,
+    colors: { primary: '#00ff00', accent: '#ffff00' }, // Neon Green & Yellow
+    icon: '🌿',
+    enabled: true
+  },
+  {
+    id: '710',
+    name: '7/10 Oil Day',
+    month: 7,
+    day: 10,
+    colors: { primary: '#f59e0b', accent: '#fbbf24' }, // Amber/Gold
+    icon: '🍯',
+    enabled: true
+  },
+  {
+    id: 'halloween',
+    name: 'Spooky Season',
+    month: 10,
+    day: 31,
+    colors: { primary: '#f97316', accent: '#a855f7' }, // Orange & Purple
+    icon: '🎃',
+    enabled: true
+  },
+  {
+    id: 'christmas',
+    name: 'Holidaze',
+    month: 12,
+    day: 25,
+    colors: { primary: '#ef4444', accent: '#10b981' }, // Red & Green
+    icon: '🎄',
+    enabled: true
+  }
+];
+
 const notifyUpdate = () => {
     window.dispatchEvent(new Event('hs_storage_update'));
 };
@@ -98,19 +138,19 @@ export const storage = {
   },
   getSettings: (): StoreSettings => {
     const data = localStorage.getItem(KEYS.SETTINGS);
-    if (!data) return DEFAULT_SETTINGS;
+    // Use deep merge for holidays to ensure new defaults appear if missing
+    const settings = data ? JSON.parse(data) : DEFAULT_SETTINGS;
     
-    // Deep merge to ensure new settings (like access) are present even if local storage is old
-    const parsed = JSON.parse(data);
     return {
         ...DEFAULT_SETTINGS,
-        ...parsed,
-        access: { ...DEFAULT_SETTINGS.access, ...(parsed.access || {}) },
-        payments: { ...DEFAULT_SETTINGS.payments, ...(parsed.payments || {}) },
-        loyalty: { ...DEFAULT_SETTINGS.loyalty, ...(parsed.loyalty || {}) },
-        messages: { ...DEFAULT_SETTINGS.messages, ...(parsed.messages || {}) },
-        visibility: { ...DEFAULT_SETTINGS.visibility, ...(parsed.visibility || {}) },
-        delivery: { ...DEFAULT_SETTINGS.delivery, ...(parsed.delivery || {}) },
+        ...settings,
+        access: { ...DEFAULT_SETTINGS.access, ...(settings.access || {}) },
+        payments: { ...DEFAULT_SETTINGS.payments, ...(settings.payments || {}) },
+        loyalty: { ...DEFAULT_SETTINGS.loyalty, ...(settings.loyalty || {}) },
+        messages: { ...DEFAULT_SETTINGS.messages, ...(settings.messages || {}) },
+        visibility: { ...DEFAULT_SETTINGS.visibility, ...(settings.visibility || {}) },
+        delivery: { ...DEFAULT_SETTINGS.delivery, ...(settings.delivery || {}) },
+        holidays: settings.holidays && settings.holidays.length > 0 ? settings.holidays : DEFAULT_HOLIDAYS
     };
   },
   saveSettings: (settings: StoreSettings) => {
