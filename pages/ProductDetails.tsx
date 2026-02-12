@@ -126,7 +126,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
              )}
 
              <Button fullWidth size="lg" onClick={handleAdd} disabled={isVariantOutOfStock}>
-               {isVariantOutOfStock ? 'Variant Out of Stock' : 'Add to Stash'}
+               {isVariantOutOfStock ? 'Variant Out of Stock' : 'Add to Cart'}
              </Button>
           </div>
         </div>
