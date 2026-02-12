@@ -1,18 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, Sparkles, User, Bot } from 'lucide-react';
+import { MessageCircle, X, Send, Sparkles, User, Bot, ExternalLink } from 'lucide-react';
 import { storage } from '../services/storage';
 import { initBudtenderChat } from '../services/gemini';
 import { Chat, GenerateContentResponse } from '@google/genai';
 
+interface Source {
+    title: string;
+    uri: string;
+}
+
 interface Message {
   role: 'user' | 'model';
   text: string;
+  sources?: Source[];
 }
 
 export const CustomerServiceChat: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: "Welcome to Billionaire Level. I'm your private concierge. Looking for something specifically, or need a recommendation? 🌿" }
+    { role: 'model', text: "Welcome to Billionaire Level. I'm The Concierge. How may I elevate your experience today? 🌿" }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -45,7 +51,11 @@ export const CustomerServiceChat: React.FC = () => {
       
       const responseText = result.text || "I'm having a little trouble connecting to the network right now.";
       
-      setMessages(prev => [...prev, { role: 'model', text: responseText }]);
+      // Extract Google Search Sources
+      const chunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks;
+      const sources = chunks?.map(c => c.web).filter(w => w) as Source[] || [];
+      
+      setMessages(prev => [...prev, { role: 'model', text: responseText, sources }]);
     } catch (error) {
       console.error("Chat Error", error);
       setMessages(prev => [...prev, { role: 'model', text: "Apologies, I briefly lost connection. Could you repeat that?" }]);
@@ -110,7 +120,28 @@ export const CustomerServiceChat: React.FC = () => {
                         : 'bg-dark-800 text-gray-200 border border-gray-700 rounded-tl-none'
                     }`}
                 >
-                    {msg.text}
+                    <div>{msg.text}</div>
+                    
+                    {/* Render Sources if available */}
+                    {msg.sources && msg.sources.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-700">
+                            <p className="text-[10px] text-gray-500 font-bold uppercase mb-2">Sources</p>
+                            <div className="space-y-1">
+                                {msg.sources.slice(0, 3).map((source, sIdx) => (
+                                    <a 
+                                        key={sIdx} 
+                                        href={source.uri} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 text-xs text-cannabis-400 hover:text-cannabis-300 truncate"
+                                    >
+                                        <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                                        <span className="truncate">{source.title}</span>
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
                 {msg.role === 'user' && (
                     <div className="w-8 h-8 rounded-full bg-dark-800 flex-shrink-0 flex items-center justify-center border border-gray-700 mt-1">
