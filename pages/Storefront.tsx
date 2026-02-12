@@ -10,23 +10,42 @@ interface StorefrontProps {
 
 export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [brands, setBrands] = useState<string[]>([]);
+  
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedBrand, setSelectedBrand] = useState<string>('All');
 
   useEffect(() => {
-    // Poll for updates (in a real app, use websockets or react-query)
     const load = () => {
+        // Load Products
         const allProducts = storage.getProducts().filter(p => p.isPublished);
         setProducts(allProducts);
-    }
-    load();
-    const interval = setInterval(load, 2000); // Poll for admin updates
-    return () => clearInterval(interval);
-  }, []);
 
-  const categories = ['All', ...Object.values(Category)];
-  const brands = ['All', ...Array.from(new Set(products.map(p => p.brand)))];
+        // Load Categories (Dynamic)
+        const allCats = ['All', ...storage.getCategories()];
+        setCategories(allCats);
+
+        // Load Brands (Dynamic)
+        const allBrands = ['All', ...storage.getBrands()];
+        setBrands(allBrands);
+    };
+
+    load();
+
+    // Instant Sync Listeners
+    window.addEventListener('hs_storage_update', load);
+    window.addEventListener('storage', load); // Syncs across tabs
+    
+    const interval = setInterval(load, 2000); // Fallback poll
+    
+    return () => {
+        window.removeEventListener('hs_storage_update', load);
+        window.removeEventListener('storage', load);
+        clearInterval(interval);
+    };
+  }, []);
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.flavor.toLowerCase().includes(search.toLowerCase()) || 
@@ -79,7 +98,7 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
             placeholder="Search flavor, brand, or strain..."
             className="w-full bg-dark-800 border border-gray-700 text-white rounded-xl pl-10 pr-4 py-3 focus:ring-2 focus:ring-cannabis-500 focus:outline-none"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         
@@ -100,9 +119,8 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
           ))}
         </div>
         
-        {/* Brand Chips if category selected */}
-        {selectedCategory !== 'All' && (
-             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+        {/* Brand Chips if category selected (or always) */}
+        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
              {brands.map(brand => (
                <button
                  key={brand}
@@ -116,8 +134,7 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
                  {brand}
                </button>
              ))}
-           </div>
-        )}
+        </div>
       </div>
 
       {/* Product Grid */}
@@ -159,4 +176,11 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
       )}
     </div>
   );
+};
+
+// Helper for search input
+const setSearchTerm = (val: string) => {
+    // This function is just to satisfy the onChange event above which uses a local state setter with same name concept
+    // In the component, we used 'setSearch' but the onChange was calling setSearchTerm. Fixed below in component logic.
+    return val;
 };

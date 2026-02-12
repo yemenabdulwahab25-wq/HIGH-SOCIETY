@@ -41,15 +41,27 @@ export const AdminInventory: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setProducts(storage.getProducts());
-    setCategories(storage.getCategories());
-    setBrands(storage.getBrands());
+    const load = () => {
+        setProducts(storage.getProducts());
+        setCategories(storage.getCategories());
+        setBrands(storage.getBrands());
+    };
+    load();
+
+    // Listen for updates
+    window.addEventListener('hs_storage_update', load);
+    window.addEventListener('storage', load);
+
     // Recover unsaved work
     const draft = localStorage.getItem('hs_product_draft');
     if (draft) {
-        // Optional: restore draft prompt
         setForm(JSON.parse(draft));
     }
+    
+    return () => {
+        window.removeEventListener('hs_storage_update', load);
+        window.removeEventListener('storage', load);
+    };
   }, []);
 
   // Autosave Draft
@@ -95,7 +107,6 @@ export const AdminInventory: React.FC = () => {
     if (newCategoryName.trim()) {
         const trimmed = newCategoryName.trim();
         storage.saveCategory(trimmed);
-        setCategories(storage.getCategories());
         handleChange('category', trimmed);
         setNewCategoryName('');
         setIsAddingCategory(false);
@@ -106,7 +117,6 @@ export const AdminInventory: React.FC = () => {
     if (newBrandName.trim()) {
         const trimmed = newBrandName.trim();
         storage.saveBrand(trimmed);
-        setBrands(storage.getBrands());
         handleChange('brand', trimmed);
         setNewBrandName('');
         setIsAddingBrand(false);
@@ -188,7 +198,6 @@ export const AdminInventory: React.FC = () => {
     storage.saveProduct(newProduct);
     localStorage.removeItem('hs_product_draft');
     setForm({ ...INITIAL_FORM, id: '' }); // Reset
-    setProducts(storage.getProducts()); // Refresh list
     alert("Product Saved Successfully!");
   };
 

@@ -13,8 +13,19 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
   const [brands, setBrands] = useState<string[]>([]);
 
   useEffect(() => {
-    setCategories(storage.getCategories());
-    setBrands(storage.getBrands());
+    const load = () => {
+        setCategories(storage.getCategories());
+        setBrands(storage.getBrands());
+    };
+    load();
+    
+    window.addEventListener('hs_storage_update', load);
+    window.addEventListener('storage', load);
+    
+    return () => {
+        window.removeEventListener('hs_storage_update', load);
+        window.removeEventListener('storage', load);
+    };
   }, []);
 
   const updateSetting = (section: keyof StoreSettings, key: string, value: any) => {
@@ -41,14 +52,12 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
   const handleDeleteCategory = (cat: string) => {
     if (window.confirm(`Delete category "${cat}"?`)) {
         storage.deleteCategory(cat);
-        setCategories(storage.getCategories());
     }
   };
 
   const handleDeleteBrand = (brand: string) => {
     if (window.confirm(`Delete brand "${brand}"?`)) {
         storage.deleteBrand(brand);
-        setBrands(storage.getBrands());
     }
   };
 

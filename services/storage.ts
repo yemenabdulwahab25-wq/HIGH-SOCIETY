@@ -56,6 +56,10 @@ const INITIAL_PRODUCTS: Product[] = [
   }
 ];
 
+const notifyUpdate = () => {
+    window.dispatchEvent(new Event('hs_storage_update'));
+};
+
 export const storage = {
   getProducts: (): Product[] => {
     const data = localStorage.getItem(KEYS.PRODUCTS);
@@ -70,10 +74,12 @@ export const storage = {
       products.push(product);
     }
     localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
+    notifyUpdate();
   },
-  deleteProduct: (id: string) => { // Soft delete or actual delete? Prompt implies no deleting tools, but deleting products is standard.
+  deleteProduct: (id: string) => { 
      const products = storage.getProducts().filter(p => p.id !== id);
      localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
+     notifyUpdate();
   },
   getOrders: (): Order[] => {
     const data = localStorage.getItem(KEYS.ORDERS);
@@ -88,6 +94,7 @@ export const storage = {
       orders.unshift(order); // Newest first
     }
     localStorage.setItem(KEYS.ORDERS, JSON.stringify(orders));
+    notifyUpdate();
   },
   getSettings: (): StoreSettings => {
     const data = localStorage.getItem(KEYS.SETTINGS);
@@ -108,6 +115,7 @@ export const storage = {
   },
   saveSettings: (settings: StoreSettings) => {
     localStorage.setItem(KEYS.SETTINGS, JSON.stringify(settings));
+    notifyUpdate();
   },
   getCategories: (): string[] => {
     const data = localStorage.getItem(KEYS.CATEGORIES);
@@ -118,11 +126,13 @@ export const storage = {
     if (!categories.includes(category)) {
       categories.push(category);
       localStorage.setItem(KEYS.CATEGORIES, JSON.stringify(categories));
+      notifyUpdate();
     }
   },
   deleteCategory: (category: string) => {
     const categories = storage.getCategories().filter(c => c !== category);
     localStorage.setItem(KEYS.CATEGORIES, JSON.stringify(categories));
+    notifyUpdate();
   },
   getBrands: (): string[] => {
     const data = localStorage.getItem(KEYS.BRANDS);
@@ -133,10 +143,12 @@ export const storage = {
     if (!brands.includes(brand)) {
       brands.push(brand);
       localStorage.setItem(KEYS.BRANDS, JSON.stringify(brands));
+      notifyUpdate();
     }
   },
   deleteBrand: (brand: string) => {
     const brands = storage.getBrands().filter(b => b !== brand);
     localStorage.setItem(KEYS.BRANDS, JSON.stringify(brands));
+    notifyUpdate();
   },
 };
