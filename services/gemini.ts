@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Chat } from "@google/genai";
 import { Product } from "../types";
 
 const apiKey = process.env.API_KEY || ''; // Ideally this is set in env
@@ -92,3 +92,53 @@ export const removeBackground = async (base64Image: string): Promise<string | nu
         return null;
     }
 }
+
+// Virtual Assistant Chat Initialization
+export const initBudtenderChat = (inventory: Product[]): Chat | null => {
+    if (!apiKey) return null;
+    
+    // Format inventory for the AI context
+    const inventoryContext = inventory
+        .filter(p => p.isPublished)
+        .map(p => `
+            - Name: ${p.flavor}
+            - Brand: ${p.brand}
+            - Type: ${p.category} (${p.strain})
+            - THC: ${p.thcPercentage}%
+            - Price: $${p.weights[0]?.price} for ${p.weights[0]?.label}
+            - Status: ${p.stock > 0 ? 'In Stock' : 'Sold Out'}
+            - Desc: ${p.description}
+        `).join('\n');
+
+    const systemInstruction = `
+        You are "The Concierge", a premium AI Budtender for 'Billionaire Level'. 
+        Your goal is to assist customers in finding the perfect cannabis product.
+        
+        Personality:
+        - Sophisticated, helpful, and concise. 
+        - Use emojis sparingly but effectively (🌿, 🔥, 💨).
+        - Do NOT act like a doctor. Do not give medical advice.
+        - Act like a high-end sommelier but for weed.
+
+        Rules:
+        1. ONLY recommend products from the provided Inventory List below. Do not hallucinate products.
+        2. If a user asks for something we don't have, politely suggest the closest alternative from the list.
+        3. If a product is 'Sold Out', inform the user.
+        4. Keep responses short (under 3 sentences) unless asked for a detailed explanation.
+
+        Current Inventory List:
+        ${inventoryContext}
+    `;
+
+    try {
+        return ai.chats.create({
+            model: 'gemini-3-flash-preview',
+            config: {
+                systemInstruction: systemInstruction,
+            }
+        });
+    } catch (e) {
+        console.error("Failed to init chat", e);
+        return null;
+    }
+};

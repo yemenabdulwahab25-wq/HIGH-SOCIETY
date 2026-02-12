@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { ShoppingBag, User, LogOut, Menu, Users } from 'lucide-react';
+import { CustomerServiceChat } from './CustomerServiceChat';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -69,6 +70,9 @@ export const Layout = ({ children, isAdmin, cartCount = 0 }: LayoutProps) => {
           {children}
         </div>
       </main>
+
+      {/* Inject Chat Widget for Customers ONLY */}
+      {!isAdmin && <CustomerServiceChat />}
 
       {/* Mobile Admin Nav */}
       {isAdmin && (
