@@ -43,6 +43,7 @@ export interface Product {
   imageUrl: string;
   description: string;
   isPublished: boolean;
+  isFeatured?: boolean; // New field for Carousel
 }
 
 export interface CartItem extends Product {

@@ -28,6 +28,7 @@ const INITIAL_PRODUCTS: Product[] = [
     imageUrl: 'https://picsum.photos/400/400?random=1',
     description: 'Heavy hitting indica with notes of diesel and pine.',
     isPublished: true,
+    isFeatured: true,
   },
   {
     id: '2',
@@ -41,6 +42,7 @@ const INITIAL_PRODUCTS: Product[] = [
     imageUrl: 'https://picsum.photos/400/400?random=2',
     description: 'Delicious blueberry gummies infused with premium distillate.',
     isPublished: true,
+    isFeatured: true,
   },
     {
     id: '3',
@@ -54,6 +56,7 @@ const INITIAL_PRODUCTS: Product[] = [
     imageUrl: 'https://picsum.photos/400/400?random=3',
     description: 'Tropical mango vibes for an uplifting day.',
     isPublished: true,
+    isFeatured: false,
   }
 ];
 

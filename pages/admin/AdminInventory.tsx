@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine } from 'lucide-react';
+import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine, Star } from 'lucide-react';
 import { storage } from '../../services/storage';
 import { Category, StrainType, Product, ProductWeight } from '../../types';
 import { generateDescription, analyzeImage, removeBackground } from '../../services/gemini';
@@ -16,6 +17,7 @@ const INITIAL_FORM = {
   stock: 0,
   imageUrl: '',
   description: '',
+  isFeatured: false,
   weights: [
     { label: '3.5g', price: 40, weightGrams: 3.5, stock: 10 },
   ]
@@ -226,7 +228,16 @@ export const AdminInventory: React.FC = () => {
       <div className="grid lg:grid-cols-2 gap-8">
         {/* LEFT COLUMN: THE FORM */}
         <div className="bg-dark-800 p-6 rounded-2xl border border-gray-700 space-y-6">
-          <h2 className="text-xl font-bold text-white mb-4">Add / Edit Product</h2>
+          <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-white">Add / Edit Product</h2>
+              <button 
+                onClick={() => handleChange('isFeatured', !form.isFeatured)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${form.isFeatured ? 'bg-gold-500/20 text-gold-400 border-gold-500' : 'bg-dark-900 border-gray-700 text-gray-500 hover:text-gray-300'}`}
+              >
+                  <Star className={`w-4 h-4 ${form.isFeatured ? 'fill-gold-400' : ''}`} />
+                  <span className="text-sm font-bold">Feature on Homepage</span>
+              </button>
+          </div>
           
           {/* Image & Scan */}
           <div className="space-y-2">
@@ -535,7 +546,10 @@ export const AdminInventory: React.FC = () => {
                     <div key={p.id} className="flex items-center gap-3 bg-dark-900 p-3 rounded-lg border border-gray-800 hover:border-gray-600 cursor-pointer" onClick={() => setForm(p)}>
                         <img src={p.imageUrl} className="w-10 h-10 rounded object-cover bg-white" />
                         <div className="flex-1 min-w-0">
-                            <div className="font-bold text-white truncate">{p.flavor}</div>
+                            <div className="flex items-center gap-2">
+                                <div className="font-bold text-white truncate">{p.flavor}</div>
+                                {p.isFeatured && <Star className="w-3 h-3 fill-gold-400 text-gold-400" />}
+                            </div>
                             <div className="text-xs text-gray-500">{p.brand}</div>
                         </div>
                         <div className="text-right">

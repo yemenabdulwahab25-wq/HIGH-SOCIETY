@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, Share2, Sparkles } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Product, StoreSettings, Category } from '../types';
+import { FeaturedCarousel } from '../components/FeaturedCarousel';
 
 interface StorefrontProps {
   settings: StoreSettings;
@@ -58,6 +60,8 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
     return matchesSearch && matchesCategory && matchesBrand;
   });
 
+  const featuredProducts = products.filter(p => p.isFeatured);
+
   const handleShare = () => {
     const shareData = {
       title: settings.storeName,
@@ -101,6 +105,11 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
             </button>
         </div>
       </div>
+
+      {/* Featured Carousel */}
+      {featuredProducts.length > 0 && (
+          <FeaturedCarousel products={featuredProducts} />
+      )}
 
       {/* Sticky Search & Filter */}
       <div className="sticky top-16 z-40 bg-dark-950/95 backdrop-blur-xl py-4 space-y-4 -mx-4 px-4 border-b border-gray-800/50">
@@ -169,6 +178,11 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
                  <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border ${getCategoryColor(product.category)}`}>
                     {product.category}
                  </span>
+                 {product.isFeatured && (
+                     <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-gold-500/20 text-gold-400 border border-gold-500/30 backdrop-blur-md flex items-center gap-1">
+                        <Sparkles className="w-2 h-2" /> Featured
+                     </span>
+                 )}
                  {product.stock > 0 && product.stock < 5 && (
                      <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-orange-500/20 text-orange-400 border border-orange-500/30 backdrop-blur-md">
                         Low Stock
