@@ -138,20 +138,23 @@ export const storage = {
   },
   getSettings: (): StoreSettings => {
     const data = localStorage.getItem(KEYS.SETTINGS);
-    // Use deep merge to ensure new defaults appear if missing
-    const settings = data ? JSON.parse(data) : DEFAULT_SETTINGS;
+    const saved = data ? JSON.parse(data) : {};
     
+    // Deep merge to ensure new fields are present
     return {
         ...DEFAULT_SETTINGS,
-        ...settings,
-        access: { ...DEFAULT_SETTINGS.access, ...(settings.access || {}) },
-        payments: { ...DEFAULT_SETTINGS.payments, ...(settings.payments || {}) },
-        loyalty: { ...DEFAULT_SETTINGS.loyalty, ...(settings.loyalty || {}) },
-        messages: { ...DEFAULT_SETTINGS.messages, ...(settings.messages || {}) },
-        visibility: { ...DEFAULT_SETTINGS.visibility, ...(settings.visibility || {}) },
-        delivery: { ...DEFAULT_SETTINGS.delivery, ...(settings.delivery || {}) },
-        holidays: settings.holidays && settings.holidays.length > 0 ? settings.holidays : DEFAULT_HOLIDAYS,
-        specialEvents: settings.specialEvents || []
+        ...saved,
+        access: { ...DEFAULT_SETTINGS.access, ...(saved.access || {}) },
+        financials: { ...DEFAULT_SETTINGS.financials, ...(saved.financials || {}) },
+        hours: { ...DEFAULT_SETTINGS.hours, ...(saved.hours || {}) },
+        inventory: { ...DEFAULT_SETTINGS.inventory, ...(saved.inventory || {}) },
+        payments: { ...DEFAULT_SETTINGS.payments, ...(saved.payments || {}) },
+        loyalty: { ...DEFAULT_SETTINGS.loyalty, ...(saved.loyalty || {}) },
+        messages: { ...DEFAULT_SETTINGS.messages, ...(saved.messages || {}) },
+        visibility: { ...DEFAULT_SETTINGS.visibility, ...(saved.visibility || {}) },
+        delivery: { ...DEFAULT_SETTINGS.delivery, ...(saved.delivery || {}) },
+        holidays: saved.holidays && saved.holidays.length > 0 ? saved.holidays : DEFAULT_HOLIDAYS,
+        specialEvents: saved.specialEvents || []
     };
   },
   saveSettings: (settings: StoreSettings) => {

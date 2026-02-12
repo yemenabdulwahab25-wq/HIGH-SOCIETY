@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Trash2, CheckCircle, CreditCard, Banknote, Bitcoin, MapPin, ShoppingBag } from 'lucide-react';
+import { Trash2, CheckCircle, CreditCard, Banknote, Bitcoin, MapPin, ShoppingBag, AlertCircle } from 'lucide-react';
 import { CartItem, StoreSettings, OrderStatus, Order } from '../types';
 import { Button } from '../components/ui/Button';
 import { storage } from '../services/storage';
@@ -25,7 +26,13 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
     }
   }, []);
 
-  const total = cart.reduce((acc, item) => acc + (item.selectedWeight.price * item.quantity), 0);
+  // Financial Calculations
+  const subtotal = cart.reduce((acc, item) => acc + (item.selectedWeight.price * item.quantity), 0);
+  const tax = subtotal * (settings.financials.taxRate / 100);
+  const deliveryFee = deliveryType === 'Delivery' ? settings.financials.deliveryFee : 0;
+  const total = subtotal + tax + deliveryFee;
+  
+  const isMinOrderMet = subtotal >= settings.financials.minOrderAmount;
 
   const handlePlaceOrder = () => {
     if (!customerInfo.name || !customerInfo.phone) {
@@ -38,6 +45,9 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
         customerName: customerInfo.name,
         customerPhone: customerInfo.phone,
         items: cart,
+        subtotal,
+        tax,
+        deliveryFee,
         total,
         status: OrderStatus.PLACED,
         timestamp: Date.now(),
@@ -68,7 +78,7 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
             </p>
             <div className="p-4 bg-dark-800 rounded-lg">
                 <p className="text-sm text-gray-500">Loyalty Points Earned (Pending Pickup)</p>
-                <p className="text-xl font-bold text-gold-400">+{Math.floor(total * settings.loyalty.pointsPerDollar)} PTS</p>
+                <p className="text-xl font-bold text-gold-400">+{Math.floor(subtotal * settings.loyalty.pointsPerDollar)} PTS</p>
             </div>
             <Button onClick={() => window.location.hash = '#'}>Back to Store</Button>
         </div>
@@ -160,12 +170,29 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
                   </div>
               </div>
               
-              <div className="pt-4 border-t border-gray-800">
-                  <div className="flex justify-between text-xl font-bold mb-6">
-                      <span>Total</span>
-                      <span>${total}</span>
+              <div className="pt-4 border-t border-gray-800 space-y-2">
+                   <div className="flex justify-between text-gray-400 text-sm">
+                      <span>Subtotal</span>
+                      <span>${subtotal.toFixed(2)}</span>
                   </div>
-                  <Button fullWidth size="lg" onClick={handlePlaceOrder}>
+                  {settings.financials.taxRate > 0 && (
+                      <div className="flex justify-between text-gray-400 text-sm">
+                          <span>Tax ({settings.financials.taxRate}%)</span>
+                          <span>${tax.toFixed(2)}</span>
+                      </div>
+                  )}
+                  {deliveryType === 'Delivery' && settings.financials.deliveryFee > 0 && (
+                      <div className="flex justify-between text-gray-400 text-sm">
+                          <span>Delivery Fee</span>
+                          <span>${deliveryFee.toFixed(2)}</span>
+                      </div>
+                  )}
+                  <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-800">
+                      <span>Total</span>
+                      <span>${total.toFixed(2)}</span>
+                  </div>
+                  
+                  <Button fullWidth size="lg" onClick={handlePlaceOrder} className="mt-4">
                       Confirm Order
                   </Button>
                   <button onClick={() => setStep('cart')} className="w-full mt-4 text-gray-500 hover:text-white">Back to Cart</button>
@@ -177,6 +204,15 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Your Stash</h1>
+      
+      {/* Min Order Alert */}
+      {!isMinOrderMet && (
+          <div className="bg-orange-900/20 border border-orange-500/30 rounded-lg p-3 flex items-center gap-3 text-orange-400 text-sm mb-4">
+              <AlertCircle className="w-5 h-5" />
+              <span>Minimum order amount is ${settings.financials.minOrderAmount}. Add ${(settings.financials.minOrderAmount - subtotal).toFixed(2)} more to checkout.</span>
+          </div>
+      )}
+
       <div className="space-y-4">
         {cart.map((item, idx) => (
           <div key={`${item.id}-${idx}`} className="flex items-center gap-4 bg-dark-800 p-4 rounded-xl border border-gray-800">
@@ -198,10 +234,11 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
       
       <div className="mt-8 p-6 bg-dark-900 rounded-xl border border-gray-800">
         <div className="flex justify-between text-lg font-bold mb-6">
-           <span>Total</span>
-           <span>${total}</span>
+           <span>Subtotal</span>
+           <span>${subtotal.toFixed(2)}</span>
         </div>
-        <Button fullWidth size="lg" onClick={() => setStep('checkout')}>
+        <div className="text-xs text-gray-500 mb-4 text-right">Tax & Fees calculated at checkout</div>
+        <Button fullWidth size="lg" onClick={() => setStep('checkout')} disabled={!isMinOrderMet}>
             Proceed to Checkout
         </Button>
       </div>

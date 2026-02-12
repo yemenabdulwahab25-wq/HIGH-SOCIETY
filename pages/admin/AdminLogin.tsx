@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { storage } from '../../services/storage';
 
 export const AdminLogin: React.FC = () => {
   const [pin, setPin] = useState('');
@@ -15,8 +17,9 @@ export const AdminLogin: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Hardcoded PIN for demo: 4200
-    if (pin === '4200') {
+    const settings = storage.getSettings();
+    
+    if (pin === settings.adminPin) {
       localStorage.setItem('hs_admin_auth', 'true');
       navigate('/admin/dashboard');
     } else {
@@ -41,7 +44,7 @@ export const AdminLogin: React.FC = () => {
             onChange={(e) => { setPin(e.target.value); setError(false); }}
             placeholder="Enter PIN"
             className="w-full bg-dark-950 border border-gray-700 rounded-xl px-4 py-3 text-center text-2xl tracking-widest text-white focus:border-cannabis-500 focus:ring-1 focus:ring-cannabis-500 outline-none transition-all"
-            maxLength={4}
+            maxLength={6} // Increased length support
             autoFocus
           />
           {error && <p className="text-red-500 text-center text-sm">Incorrect PIN. Try again.</p>}

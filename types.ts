@@ -55,6 +55,9 @@ export interface Order {
   customerName: string;
   customerPhone: string;
   items: CartItem[];
+  subtotal: number;
+  tax: number;
+  deliveryFee: number;
   total: number;
   status: OrderStatus;
   timestamp: number;
@@ -88,9 +91,26 @@ export interface SpecialEvent {
 
 export interface StoreSettings {
   storeName: string;
+  adminPin: string; // Security
+  maintenanceMode: boolean; // System
   access: {
     enabled: boolean;
     code: string;
+  };
+  financials: {
+    taxRate: number; // Percentage
+    deliveryFee: number; // Fixed amount
+    minOrderAmount: number;
+    currencySymbol: string;
+  };
+  hours: {
+    enabled: boolean;
+    openTime: string; // "09:00"
+    closeTime: string; // "22:00"
+    closedDays: number[]; // 0 = Sunday, 1 = Monday, etc.
+  };
+  inventory: {
+    lowStockThreshold: number;
   };
   payments: {
     online: boolean;
@@ -119,9 +139,26 @@ export interface StoreSettings {
 
 export const DEFAULT_SETTINGS: StoreSettings = {
   storeName: "Billionaire Level",
+  adminPin: "4200",
+  maintenanceMode: false,
   access: {
     enabled: false,
     code: "420",
+  },
+  financials: {
+    taxRate: 0,
+    deliveryFee: 10,
+    minOrderAmount: 0,
+    currencySymbol: '$'
+  },
+  hours: {
+    enabled: false,
+    openTime: "09:00",
+    closeTime: "22:00",
+    closedDays: []
+  },
+  inventory: {
+    lowStockThreshold: 5
   },
   payments: {
     online: false,
@@ -144,6 +181,6 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   delivery: {
     enabled: false,
   },
-  holidays: [], // Populated in storage.ts
+  holidays: [], 
   specialEvents: []
 };

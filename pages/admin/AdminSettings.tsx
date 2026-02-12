@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { StoreSettings, HolidayTheme, SpecialEvent } from '../../types';
 import { storage } from '../../services/storage';
-import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2, Megaphone } from 'lucide-react';
+import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2, Megaphone, Clock, DollarSign, Settings as SettingsIcon, AlertTriangle, Power } from 'lucide-react';
 
 interface AdminSettingsProps {
   settings: StoreSettings;
@@ -148,13 +148,30 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
       </div>
   );
 
+  // Helper for Days of Week
+  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const toggleDay = (dayIndex: number) => {
+      const currentClosed = settings.hours.closedDays || [];
+      if (currentClosed.includes(dayIndex)) {
+          updateSetting('hours', 'closedDays', currentClosed.filter(d => d !== dayIndex));
+      } else {
+          updateSetting('hours', 'closedDays', [...currentClosed, dayIndex]);
+      }
+  };
+
   return (
-    <div className="max-w-2xl mx-auto space-y-8 pb-20">
-      <h1 className="text-3xl font-bold text-white">Store Settings</h1>
+    <div className="max-w-3xl mx-auto space-y-8 pb-20">
+      <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-white">Store Command Center</h1>
+          {settings.maintenanceMode && <span className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse">MAINTENANCE MODE ON</span>}
+      </div>
       
-      {/* General Settings */}
+      {/* 1. General Settings */}
       <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
-          <h2 className="text-xl font-bold text-white mb-4 text-cannabis-400">General</h2>
+          <div className="flex items-center gap-2 mb-4">
+              <SettingsIcon className="w-5 h-5 text-cannabis-500" />
+              <h2 className="text-xl font-bold text-white text-cannabis-400">General Info</h2>
+          </div>
           <div>
               <label className="text-sm text-gray-400 mb-1 block">Store Name</label>
               <input 
@@ -164,6 +181,126 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
                 className="w-full bg-dark-900 border border-gray-700 rounded-lg p-3 text-white"
                 placeholder="e.g. Billionaire Level"
               />
+          </div>
+      </section>
+
+      {/* 2. Operations (Hours) */}
+      <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
+          <div className="flex items-center gap-2 mb-4">
+              <Clock className="w-5 h-5 text-cannabis-500" />
+              <h2 className="text-xl font-bold text-white text-cannabis-400">Store Operations</h2>
+          </div>
+          
+          <Toggle 
+            label="Enforce Store Hours (Show 'Closed' status)" 
+            checked={settings.hours.enabled} 
+            onChange={(v) => updateSetting('hours', 'enabled', v)} 
+          />
+
+          <div className="grid grid-cols-2 gap-4 mt-4">
+              <div>
+                  <label className="text-sm text-gray-400 mb-1 block">Open Time</label>
+                  <input type="time" className="w-full bg-dark-900 border border-gray-700 rounded-lg p-3 text-white" 
+                     value={settings.hours.openTime} onChange={(e) => updateSetting('hours', 'openTime', e.target.value)} />
+              </div>
+               <div>
+                  <label className="text-sm text-gray-400 mb-1 block">Close Time</label>
+                  <input type="time" className="w-full bg-dark-900 border border-gray-700 rounded-lg p-3 text-white" 
+                     value={settings.hours.closeTime} onChange={(e) => updateSetting('hours', 'closeTime', e.target.value)} />
+              </div>
+          </div>
+
+          <div className="mt-4">
+               <label className="text-sm text-gray-400 mb-2 block">Days Closed</label>
+               <div className="flex gap-2 flex-wrap">
+                   {daysOfWeek.map((day, idx) => {
+                       const isClosed = settings.hours.closedDays?.includes(idx);
+                       return (
+                           <button 
+                             key={day}
+                             onClick={() => toggleDay(idx)}
+                             className={`px-3 py-2 rounded-lg text-sm font-bold border transition-colors ${isClosed ? 'bg-red-900/50 border-red-500/50 text-red-400' : 'bg-dark-900 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                           >
+                               {day}
+                           </button>
+                       )
+                   })}
+               </div>
+          </div>
+      </section>
+
+      {/* 3. Financials */}
+      <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
+          <div className="flex items-center gap-2 mb-4">
+              <DollarSign className="w-5 h-5 text-cannabis-500" />
+              <h2 className="text-xl font-bold text-white text-cannabis-400">Financials</h2>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+               <div>
+                   <label className="text-sm text-gray-400 mb-1 block">Sales Tax (%)</label>
+                   <input type="number" className="w-full bg-dark-900 border border-gray-700 rounded-lg p-3 text-white" 
+                      value={settings.financials.taxRate} onChange={(e) => updateSetting('financials', 'taxRate', Number(e.target.value))} />
+               </div>
+               <div>
+                   <label className="text-sm text-gray-400 mb-1 block">Delivery Fee ($)</label>
+                   <input type="number" className="w-full bg-dark-900 border border-gray-700 rounded-lg p-3 text-white" 
+                      value={settings.financials.deliveryFee} onChange={(e) => updateSetting('financials', 'deliveryFee', Number(e.target.value))} />
+               </div>
+               <div>
+                   <label className="text-sm text-gray-400 mb-1 block">Min Order ($)</label>
+                   <input type="number" className="w-full bg-dark-900 border border-gray-700 rounded-lg p-3 text-white" 
+                      value={settings.financials.minOrderAmount} onChange={(e) => updateSetting('financials', 'minOrderAmount', Number(e.target.value))} />
+               </div>
+          </div>
+      </section>
+
+      {/* 4. Inventory Alerts */}
+      <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
+          <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="w-5 h-5 text-cannabis-500" />
+              <h2 className="text-xl font-bold text-white text-cannabis-400">Inventory Alerts</h2>
+          </div>
+           <div className="flex items-center justify-between py-2">
+              <span className="text-gray-300 font-medium">Low Stock Threshold (Units)</span>
+              <input 
+                type="number" 
+                value={settings.inventory.lowStockThreshold}
+                onChange={(e) => updateSetting('inventory', 'lowStockThreshold', Number(e.target.value))}
+                className="w-24 bg-dark-900 border border-gray-700 rounded-lg p-2 text-center text-white"
+              />
+          </div>
+      </section>
+
+      {/* 5. System & Security */}
+      <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
+           <div className="flex items-center gap-2 mb-4">
+              <Lock className="w-5 h-5 text-cannabis-500" />
+              <h2 className="text-xl font-bold text-white text-cannabis-400">System & Security</h2>
+          </div>
+
+          <div className="mb-4">
+              <label className="text-sm text-gray-400 mb-1 block">Admin PIN (Login)</label>
+              <input 
+                type="text" 
+                value={settings.adminPin}
+                onChange={(e) => updateRootSetting('adminPin', e.target.value)}
+                className="w-full bg-dark-900 border border-gray-700 rounded-lg p-3 text-white font-mono tracking-widest"
+              />
+          </div>
+
+          <div className="bg-red-900/10 border border-red-900/30 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                  <div>
+                      <h3 className="text-red-400 font-bold flex items-center gap-2"><Power className="w-4 h-4"/> Maintenance Mode</h3>
+                      <p className="text-xs text-gray-500 mt-1">Closes the store to all customers immediately.</p>
+                  </div>
+                  <Toggle 
+                    label="" 
+                    checked={settings.maintenanceMode} 
+                    onChange={(v) => updateRootSetting('maintenanceMode', v)} 
+                  />
+              </div>
           </div>
       </section>
 
@@ -350,7 +487,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
       <section className="bg-dark-800 rounded-xl p-6 border border-gray-700 relative overflow-hidden">
           <div className="flex items-center gap-2 mb-4">
               <Shield className="w-5 h-5 text-cannabis-500" />
-              <h2 className="text-xl font-bold text-white text-cannabis-400">Store Security</h2>
+              <h2 className="text-xl font-bold text-white text-cannabis-400">Store Access</h2>
           </div>
           <div className="bg-dark-900/50 p-4 rounded-lg border border-gray-700 mb-4">
                <p className="text-sm text-gray-400 mb-2">When enabled, visitors must enter a code to view your products.</p>
@@ -363,7 +500,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
           
           {settings.access.enabled && (
                <div className="animate-in fade-in slide-in-from-top-2">
-                    <label className="text-sm text-gray-400 mb-1 block">Access Code (PIN)</label>
+                    <label className="text-sm text-gray-400 mb-1 block">Customer Access Code</label>
                     <div className="relative">
                         <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                         <input 
