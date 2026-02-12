@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2 } from 'lucide-react';
+import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine } from 'lucide-react';
 import { storage } from '../../services/storage';
 import { Category, StrainType, Product, ProductWeight } from '../../types';
 import { generateDescription, analyzeImage, removeBackground } from '../../services/gemini';
@@ -135,23 +135,35 @@ export const AdminInventory: React.FC = () => {
         handleChange('imageUrl', base64);
         
         // 2. Trigger AI Analysis
-        setAnalyzingImage(true);
-        const analysis = await analyzeImage(base64);
-        setAnalyzingImage(false);
+        performImageScan(base64);
+      };
+      
+      reader.readAsDataURL(file);
+    }
+  };
 
-        // 3. Populate fields if found
+  const performImageScan = async (base64Image: string) => {
+      setAnalyzingImage(true);
+      const analysis = await analyzeImage(base64Image);
+      setAnalyzingImage(false);
+
+      if (analysis) {
         setForm(prev => ({
             ...prev,
-            imageUrl: base64, // Ensure image stays
+            imageUrl: base64Image, // Ensure image stays
             brand: analysis.brand || prev.brand,
             flavor: analysis.flavor || prev.flavor,
             strain: (analysis.strain as StrainType) || prev.strain,
             thcPercentage: analysis.thcPercentage || prev.thcPercentage
         }));
-      };
-      
-      reader.readAsDataURL(file);
-    }
+      }
+  };
+
+  const handleManualScan = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (form.imageUrl) {
+          performImageScan(form.imageUrl);
+      }
   };
 
   const handleRemoveBg = async (e: React.MouseEvent) => {
@@ -228,7 +240,16 @@ export const AdminInventory: React.FC = () => {
                         <img src={form.imageUrl} className="w-full h-full object-contain bg-dark-950" alt="Preview" />
                         
                         {/* Floating Action Buttons */}
-                         <div className="absolute top-3 right-3 flex gap-2 z-30" onClick={(e) => e.stopPropagation()}>
+                         <div className="absolute top-3 right-3 flex flex-col gap-2 z-30" onClick={(e) => e.stopPropagation()}>
+                             <button
+                                onClick={handleManualScan}
+                                disabled={analyzingImage}
+                                className="flex items-center gap-1.5 bg-dark-900/90 hover:bg-dark-800 text-white text-xs font-medium py-1.5 px-3 rounded-lg border border-gray-600 backdrop-blur-md transition-all shadow-xl"
+                                title="Analyze Image Info"
+                            >
+                                <ScanLine className={`w-3.5 h-3.5 ${analyzingImage ? 'animate-pulse text-cannabis-400' : 'text-cannabis-500'}`} />
+                                {analyzingImage ? 'Scanning...' : 'AI Scan'}
+                            </button>
                              <button
                                 onClick={handleRemoveBg}
                                 disabled={removingBg}
@@ -249,6 +270,7 @@ export const AdminInventory: React.FC = () => {
                     <>
                         <Camera className="w-10 h-10 text-gray-500 mb-2" />
                         <span className="text-gray-400">Tap to Capture / Upload</span>
+                        <span className="text-xs text-cannabis-500 font-bold mt-1 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Auto-Scan Enabled</span>
                     </>
                 )}
                 
