@@ -29,7 +29,8 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
       // Simple normalization to match varying phone formats
       const cleanPhone = phone.replace(/\D/g, '');
       const userOrders = allOrders.filter(o => o.customerPhone.replace(/\D/g, '') === cleanPhone);
-      setOrders(userOrders);
+      // Sort newest first
+      setOrders(userOrders.sort((a,b) => b.timestamp - a.timestamp));
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -52,25 +53,42 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
   const handleBuyAgain = (order: Order) => {
       const currentProducts = storage.getProducts();
       let addedCount = 0;
+      let partialStockCount = 0;
 
       order.items.forEach(item => {
           // Find if product still exists in catalog
           const currentProduct = currentProducts.find(p => p.id === item.id);
-          if (currentProduct && currentProduct.stock > 0 && currentProduct.isPublished) {
+          
+          if (currentProduct && currentProduct.isPublished) {
               // Find matching weight index
               const weightIndex = currentProduct.weights.findIndex(w => w.label === item.selectedWeight.label);
               
               if (weightIndex >= 0) {
-                  addToCart(currentProduct, weightIndex, item.quantity);
-                  addedCount++;
+                  const currentVariant = currentProduct.weights[weightIndex];
+                  
+                  // Check available stock
+                  if (currentVariant.stock > 0) {
+                      // Don't add more than available
+                      const qtyToAdd = Math.min(item.quantity, currentVariant.stock);
+                      
+                      if (qtyToAdd < item.quantity) {
+                          partialStockCount++;
+                      }
+
+                      addToCart(currentProduct, weightIndex, qtyToAdd);
+                      addedCount++;
+                  }
               }
           }
       });
 
       if (addedCount > 0) {
+          if (partialStockCount > 0) {
+              alert("Some items had limited stock, so we adjusted the quantities.");
+          }
           navigate('/cart');
       } else {
-          alert("Sorry, the items from this order are no longer available.");
+          alert("Sorry, the items from this order are currently out of stock or no longer available.");
       }
   };
 
@@ -170,7 +188,7 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
                   <Button 
                     variant="secondary" 
                     fullWidth 
-                    className="flex items-center justify-center gap-2 border-cannabis-500/30 hover:bg-cannabis-500/10 text-cannabis-400 hover:text-cannabis-300"
+                    className="flex items-center justify-center gap-2 border-cannabis-500/30 hover:bg-cannabis-500/10 text-cannabis-400 hover:text-cannabis-300 transition-all active:scale-95"
                     onClick={() => handleBuyAgain(order)}
                   >
                       <RotateCcw className="w-4 h-4" /> Buy Again
