@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { StoreSettings } from '../types';
+import { Logo } from '../components/Logo';
 
 interface StoreAccessProps {
   settings: StoreSettings;
@@ -35,7 +36,7 @@ export const StoreAccess: React.FC<StoreAccessProps> = ({ settings }) => {
       <div className="w-full max-w-sm bg-dark-900/80 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl relative z-10">
         <div className="flex justify-center mb-6">
           <div className="w-32 h-32 flex items-center justify-center relative group">
-            <img src="/logo.svg" alt="Billionaire Level" className="w-full h-full object-contain drop-shadow-2xl relative z-10" />
+            <Logo className="w-full h-full drop-shadow-2xl relative z-10" />
             <div className="absolute inset-0 bg-cannabis-500/20 rounded-full blur-xl group-hover:blur-2xl transition-all"></div>
           </div>
         </div>

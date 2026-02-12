@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Flame, Moon, ShieldCheck, Zap } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { Logo } from '../components/Logo';
 
 export const Guide: React.FC = () => {
   return (
@@ -22,7 +23,7 @@ export const Guide: React.FC = () => {
         {/* Hero */}
         <div className="text-center space-y-4">
           <div className="w-24 h-24 mx-auto drop-shadow-2xl">
-            <img src="/logo.svg" alt="Billionaire Level" className="w-full h-full object-contain" />
+            <Logo className="w-full h-full" />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
             The Art of Elevation
