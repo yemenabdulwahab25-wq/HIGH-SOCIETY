@@ -120,6 +120,10 @@ export const storage = {
       localStorage.setItem(KEYS.CATEGORIES, JSON.stringify(categories));
     }
   },
+  deleteCategory: (category: string) => {
+    const categories = storage.getCategories().filter(c => c !== category);
+    localStorage.setItem(KEYS.CATEGORIES, JSON.stringify(categories));
+  },
   getBrands: (): string[] => {
     const data = localStorage.getItem(KEYS.BRANDS);
     return data ? JSON.parse(data) : ['MoonRocks', 'YumYum', 'Cloud9', 'Cookies', 'Jungle Boys'];
@@ -130,5 +134,9 @@ export const storage = {
       brands.push(brand);
       localStorage.setItem(KEYS.BRANDS, JSON.stringify(brands));
     }
+  },
+  deleteBrand: (brand: string) => {
+    const brands = storage.getBrands().filter(b => b !== brand);
+    localStorage.setItem(KEYS.BRANDS, JSON.stringify(brands));
   },
 };
