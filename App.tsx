@@ -6,6 +6,7 @@ import { ProductDetails } from './pages/ProductDetails';
 import { Cart } from './pages/Cart';
 import { Account } from './pages/Account';
 import { StoreAccess } from './pages/StoreAccess';
+import { Guide } from './pages/Guide'; // Import Guide
 import { AdminLogin } from './pages/admin/AdminLogin';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminInventory } from './pages/admin/AdminInventory';
@@ -87,6 +88,9 @@ const AppContent = () => {
     <Routes>
       {/* Access Gate */}
       <Route path="/access" element={<StoreAccess settings={settings} />} />
+
+      {/* Public Guide */}
+      <Route path="/guide" element={<Guide />} />
 
       {/* Customer Routes (Protected if enabled) */}
       <Route path="/" element={

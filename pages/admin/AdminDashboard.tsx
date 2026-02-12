@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { storage } from '../../services/storage';
 import { Order, OrderStatus } from '../../types';
-import { Clock, CheckCircle, Package, Truck, DollarSign, Calendar, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Clock, CheckCircle, Package, Truck, DollarSign, Calendar, TrendingUp, AlertTriangle, MessageSquare, Copy, X, Send } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -12,6 +12,13 @@ export const AdminDashboard: React.FC = () => {
       totalRevenue: 0,
       lowStockCount: 0,
       totalItems: 0
+  });
+
+  // Message Modal State
+  const [msgModal, setMsgModal] = useState<{isOpen: boolean, order: Order | null, text: string}>({
+      isOpen: false, 
+      order: null, 
+      text: ''
   });
 
   const loadData = () => {
@@ -65,7 +72,30 @@ export const AdminDashboard: React.FC = () => {
         order.status = status;
         storage.saveOrder(order);
         loadData();
+        
+        // Trigger Message Modal on Pickup
+        if (status === OrderStatus.PICKED_UP) {
+            const settings = storage.getSettings();
+            if (settings.messages.enabled) {
+                // Construct message with Guide link
+                const guideLink = `${window.location.origin}/#/guide`;
+                const message = `Hi ${order.customerName}, thanks for picking up from ${settings.storeName}! ${settings.messages.template}\n\nEnjoy responsibly. Check out our Connoisseur Guide here: ${guideLink}`;
+                setMsgModal({ isOpen: true, order: order, text: message });
+            }
+        }
     }
+  };
+
+  const handleSendSMS = () => {
+      if (msgModal.order) {
+          window.location.href = `sms:${msgModal.order.customerPhone}?body=${encodeURIComponent(msgModal.text)}`;
+          // setMsgModal({ ...msgModal, isOpen: false }); // Optional: keep open to confirm
+      }
+  };
+
+  const handleCopy = () => {
+      navigator.clipboard.writeText(msgModal.text);
+      alert("Message copied to clipboard!");
   };
 
   const StatusBadge = ({ status }: { status: OrderStatus }) => {
@@ -203,6 +233,47 @@ export const AdminDashboard: React.FC = () => {
             </div>
         )}
       </div>
+
+      {/* Message Modal */}
+      {msgModal.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+              <div className="bg-dark-800 rounded-2xl border border-gray-700 w-full max-w-md shadow-2xl p-6 relative animate-in fade-in zoom-in-95">
+                  <button 
+                    onClick={() => setMsgModal({ ...msgModal, isOpen: false })}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-white"
+                  >
+                      <X className="w-5 h-5" />
+                  </button>
+                  
+                  <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-cannabis-500/20 text-cannabis-400 flex items-center justify-center">
+                          <MessageSquare className="w-5 h-5" />
+                      </div>
+                      <h2 className="text-xl font-bold text-white">Send Pickup Message</h2>
+                  </div>
+
+                  <p className="text-sm text-gray-400 mb-2">Generated message with Guide link:</p>
+                  <div className="bg-dark-900 p-4 rounded-xl border border-gray-700 text-sm text-white font-mono whitespace-pre-wrap leading-relaxed mb-6">
+                      {msgModal.text}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                      <button 
+                        onClick={handleCopy}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-dark-700 hover:bg-dark-600 text-white font-bold transition-colors"
+                      >
+                          <Copy className="w-4 h-4" /> Copy
+                      </button>
+                      <button 
+                        onClick={handleSendSMS}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-cannabis-600 hover:bg-cannabis-500 text-white font-bold transition-colors"
+                      >
+                          <Send className="w-4 h-4" /> Send SMS
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };
