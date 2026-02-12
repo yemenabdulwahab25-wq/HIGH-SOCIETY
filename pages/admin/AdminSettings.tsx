@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { StoreSettings, HolidayTheme, SpecialEvent } from '../../types';
 import { storage } from '../../services/storage';
-import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2, Megaphone, Clock, DollarSign, Settings as SettingsIcon, AlertTriangle, Power } from 'lucide-react';
+import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2, Megaphone, Clock, DollarSign, Settings as SettingsIcon, AlertTriangle, Power, Ticket } from 'lucide-react';
 
 interface AdminSettingsProps {
   settings: StoreSettings;
@@ -255,7 +255,40 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
           </div>
       </section>
 
-      {/* 4. Inventory Alerts */}
+      {/* 4. Referral Program */}
+      <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
+          <div className="flex items-center gap-2 mb-4">
+              <Ticket className="w-5 h-5 text-cannabis-500" />
+              <h2 className="text-xl font-bold text-white text-cannabis-400">Referral Program</h2>
+          </div>
+          
+          <Toggle 
+            label="Enable Referral Codes" 
+            checked={settings.referral.enabled} 
+            onChange={(v) => updateSetting('referral', 'enabled', v)} 
+          />
+
+          {settings.referral.enabled && (
+             <div className="mt-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between py-2">
+                      <span className="text-gray-300 font-medium">Discount Percentage (%)</span>
+                      <input 
+                        type="number" 
+                        value={settings.referral.percentage}
+                        onChange={(e) => updateSetting('referral', 'percentage', Number(e.target.value))}
+                        className="w-24 bg-dark-900 border border-gray-700 rounded-lg p-2 text-center text-white"
+                        min="1"
+                        max="100"
+                      />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                      Customers will receive a unique code after purchase. Friends using the code get this % off (one-time use).
+                  </p>
+             </div>
+          )}
+      </section>
+
+      {/* 5. Inventory Alerts */}
       <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
           <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="w-5 h-5 text-cannabis-500" />
@@ -272,7 +305,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
           </div>
       </section>
 
-      {/* 5. System & Security */}
+      {/* 6. System & Security */}
       <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
            <div className="flex items-center gap-2 mb-4">
               <Lock className="w-5 h-5 text-cannabis-500" />

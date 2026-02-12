@@ -153,6 +153,7 @@ export const storage = {
         inventory: { ...DEFAULT_SETTINGS.inventory, ...(saved.inventory || {}) },
         payments: { ...DEFAULT_SETTINGS.payments, ...(saved.payments || {}) },
         loyalty: { ...DEFAULT_SETTINGS.loyalty, ...(saved.loyalty || {}) },
+        referral: { ...DEFAULT_SETTINGS.referral, ...(saved.referral || {}) },
         messages: { ...DEFAULT_SETTINGS.messages, ...(saved.messages || {}) },
         visibility: { ...DEFAULT_SETTINGS.visibility, ...(saved.visibility || {}) },
         delivery: { ...DEFAULT_SETTINGS.delivery, ...(saved.delivery || {}) },

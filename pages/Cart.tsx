@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Trash2, CheckCircle, CreditCard, Banknote, Bitcoin, MapPin, ShoppingBag, AlertCircle } from 'lucide-react';
+import { Trash2, CheckCircle, CreditCard, Banknote, Bitcoin, MapPin, ShoppingBag, AlertCircle, Ticket, Copy } from 'lucide-react';
 import { CartItem, StoreSettings, OrderStatus, Order } from '../types';
 import { Button } from '../components/ui/Button';
 import { storage } from '../services/storage';
@@ -17,6 +17,12 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
   const [deliveryType, setDeliveryType] = useState<'Pickup' | 'Delivery'>('Pickup');
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Card' | 'Online' | 'Crypto'>('Cash');
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', email: '' });
+  
+  // Promo Code State
+  const [promoCode, setPromoCode] = useState('');
+  const [promoError, setPromoError] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [generatedCode, setGeneratedCode] = useState('');
 
   useEffect(() => {
     // Auto-fill if available
@@ -28,11 +34,53 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
 
   // Financial Calculations
   const subtotal = cart.reduce((acc, item) => acc + (item.selectedWeight.price * item.quantity), 0);
-  const tax = subtotal * (settings.financials.taxRate / 100);
+  const discountAmount = appliedPromo ? (subtotal * (settings.referral.percentage / 100)) : 0;
+  const taxableAmount = subtotal - discountAmount;
+  const tax = taxableAmount * (settings.financials.taxRate / 100);
   const deliveryFee = deliveryType === 'Delivery' ? settings.financials.deliveryFee : 0;
-  const total = subtotal + tax + deliveryFee;
+  const total = taxableAmount + tax + deliveryFee;
   
   const isMinOrderMet = subtotal >= settings.financials.minOrderAmount;
+
+  const handleApplyPromo = () => {
+      if (!settings.referral.enabled) return;
+      if (!promoCode.trim()) return;
+
+      setPromoError('');
+      const code = promoCode.trim().toUpperCase();
+      const orders = storage.getOrders();
+      
+      // 1. Find the order that generated this code
+      const originOrder = orders.find(o => o.generatedReferralCode === code);
+      
+      if (!originOrder) {
+          setPromoError('Invalid referral code.');
+          return;
+      }
+
+      // 2. Self-Referral Check
+      // We normalize phone numbers to basic digits to compare
+      const normalize = (p: string) => p.replace(/\D/g, '');
+      if (normalize(originOrder.customerPhone) === normalize(customerInfo.phone)) {
+          setPromoError('You cannot use your own referral code.');
+          return;
+      }
+
+      // 3. One-Time Use Check
+      const isUsed = orders.some(o => o.appliedReferralCode === code && o.status !== OrderStatus.CANCELLED);
+      if (isUsed) {
+          setPromoError('This code has already been redeemed.');
+          return;
+      }
+
+      setAppliedPromo(code);
+      setPromoCode(''); // Clear input
+  };
+
+  const handleRemovePromo = () => {
+      setAppliedPromo(null);
+      setPromoError('');
+  };
 
   const handlePlaceOrder = () => {
     if (!customerInfo.name || !customerInfo.phone) {
@@ -40,19 +88,26 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
         return;
     }
 
+    // Generate a unique referral code for this new order
+    const newRefCode = `REF-${Math.random().toString(36).substr(2, 4).toUpperCase()}${Math.floor(Math.random() * 100)}`;
+    setGeneratedCode(newRefCode);
+
     const newOrder: Order = {
         id: Math.random().toString(36).substr(2, 9).toUpperCase(),
         customerName: customerInfo.name,
         customerPhone: customerInfo.phone,
         items: cart,
         subtotal,
+        discountAmount,
         tax,
         deliveryFee,
         total,
         status: OrderStatus.PLACED,
         timestamp: Date.now(),
         type: deliveryType,
-        paymentMethod
+        paymentMethod,
+        generatedReferralCode: newRefCode,
+        appliedReferralCode: appliedPromo || undefined
     };
 
     storage.saveOrder(newOrder);
@@ -61,14 +116,11 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
     
     clearCart();
     setStep('success');
-    
-    // Simulate Owner Alert
-    // new Audio('/alert.mp3').play().catch(() => {}); 
   };
 
   if (step === 'success') {
     return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 animate-in fade-in zoom-in-95">
             <div className="w-20 h-20 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center">
                 <CheckCircle className="w-10 h-10" />
             </div>
@@ -76,7 +128,32 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
             <p className="text-gray-400 max-w-md">
                 Thanks {customerInfo.name}. We've received your order. You'll get a notification when it's ready for {deliveryType.toLowerCase()}.
             </p>
-            <div className="p-4 bg-dark-800 rounded-lg">
+            
+            {/* Referral Code Display */}
+            {settings.referral.enabled && (
+                <div className="bg-gradient-to-r from-dark-800 to-dark-900 border border-gold-500/30 p-6 rounded-2xl max-w-sm w-full relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-gold-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                    <div className="relative z-10">
+                        <div className="flex items-center justify-center gap-2 text-gold-400 font-bold uppercase tracking-widest text-xs mb-2">
+                            <Ticket className="w-4 h-4" /> Share & Earn
+                        </div>
+                        <p className="text-gray-300 text-sm mb-4">
+                            Give a friend <strong>{settings.referral.percentage}% OFF</strong> their first order.
+                        </p>
+                        <div className="bg-black/40 border border-gray-700 rounded-xl p-3 flex items-center justify-between gap-3">
+                            <span className="font-mono text-xl font-bold text-white tracking-widest">{generatedCode}</span>
+                            <button 
+                                onClick={() => {navigator.clipboard.writeText(generatedCode); alert("Code copied!");}}
+                                className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
+                            >
+                                <Copy className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="p-4 bg-dark-800 rounded-lg mt-4 w-full max-w-sm">
                 <p className="text-sm text-gray-500">Loyalty Points Earned (Pending Pickup)</p>
                 <p className="text-xl font-bold text-gold-400">+{Math.floor(subtotal * settings.loyalty.pointsPerDollar)} PTS</p>
             </div>
@@ -96,7 +173,7 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
 
   if (step === 'checkout') {
       return (
-          <div className="max-w-xl mx-auto space-y-8">
+          <div className="max-w-xl mx-auto space-y-8 animate-in slide-in-from-right-8 duration-300">
               <h2 className="text-2xl font-bold">Checkout</h2>
               
               {/* Delivery Method */}
@@ -128,21 +205,21 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
                   <input 
                     type="text" 
                     placeholder="Name" 
-                    className="w-full bg-dark-800 border-gray-700 rounded-lg p-3 text-white"
+                    className="w-full bg-dark-800 border-gray-700 rounded-lg p-3 text-white focus:border-cannabis-500 outline-none"
                     value={customerInfo.name}
                     onChange={e => setCustomerInfo({...customerInfo, name: e.target.value})}
                   />
                   <input 
                     type="tel" 
                     placeholder="Phone Number" 
-                    className="w-full bg-dark-800 border-gray-700 rounded-lg p-3 text-white"
+                    className="w-full bg-dark-800 border-gray-700 rounded-lg p-3 text-white focus:border-cannabis-500 outline-none"
                     value={customerInfo.phone}
                     onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})}
                   />
                   <input 
                     type="email" 
                     placeholder="Email (Optional)" 
-                    className="w-full bg-dark-800 border-gray-700 rounded-lg p-3 text-white"
+                    className="w-full bg-dark-800 border-gray-700 rounded-lg p-3 text-white focus:border-cannabis-500 outline-none"
                     value={customerInfo.email}
                     onChange={e => setCustomerInfo({...customerInfo, email: e.target.value})}
                   />
@@ -169,12 +246,55 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
                       )}
                   </div>
               </div>
+
+              {/* Promo Code Section */}
+              {settings.referral.enabled && (
+                  <div className="space-y-3">
+                      <label className="text-sm font-medium text-gray-400">Discount Code</label>
+                      {!appliedPromo ? (
+                          <div className="flex gap-2">
+                              <input 
+                                type="text" 
+                                placeholder="Enter code" 
+                                className="flex-1 bg-dark-800 border border-gray-700 rounded-lg p-3 text-white uppercase focus:border-cannabis-500 outline-none"
+                                value={promoCode}
+                                onChange={e => setPromoCode(e.target.value)}
+                              />
+                              <button 
+                                onClick={handleApplyPromo}
+                                disabled={!promoCode || !customerInfo.phone}
+                                className="bg-gray-700 hover:bg-gray-600 text-white px-4 rounded-lg font-bold disabled:opacity-50 transition-colors"
+                              >
+                                  Apply
+                              </button>
+                          </div>
+                      ) : (
+                          <div className="flex items-center justify-between bg-green-900/20 border border-green-500/30 p-3 rounded-lg text-green-400">
+                              <div className="flex items-center gap-2">
+                                  <Ticket className="w-4 h-4" />
+                                  <span className="font-bold">{appliedPromo} applied ({settings.referral.percentage}% Off)</span>
+                              </div>
+                              <button onClick={handleRemovePromo} className="text-gray-500 hover:text-white">
+                                  <Trash2 className="w-4 h-4" />
+                              </button>
+                          </div>
+                      )}
+                      {promoError && <p className="text-xs text-red-500">{promoError}</p>}
+                      {!customerInfo.phone && !appliedPromo && <p className="text-xs text-gray-500">Enter phone number above to apply codes.</p>}
+                  </div>
+              )}
               
               <div className="pt-4 border-t border-gray-800 space-y-2">
                    <div className="flex justify-between text-gray-400 text-sm">
                       <span>Subtotal</span>
                       <span>${subtotal.toFixed(2)}</span>
                   </div>
+                  {appliedPromo && (
+                      <div className="flex justify-between text-green-400 text-sm font-bold">
+                          <span>Discount</span>
+                          <span>-${discountAmount.toFixed(2)}</span>
+                      </div>
+                  )}
                   {settings.financials.taxRate > 0 && (
                       <div className="flex justify-between text-gray-400 text-sm">
                           <span>Tax ({settings.financials.taxRate}%)</span>

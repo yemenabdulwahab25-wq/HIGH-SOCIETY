@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { storage } from '../../services/storage';
 import { Order, OrderStatus } from '../../types';
-import { Clock, CheckCircle, Package, Truck, DollarSign, Calendar, TrendingUp, AlertTriangle, MessageSquare, Copy, X, Send, Bell } from 'lucide-react';
+import { Clock, CheckCircle, Package, Truck, DollarSign, Calendar, TrendingUp, AlertTriangle, MessageSquare, Copy, X, Send, Bell, Ticket } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -255,8 +255,14 @@ export const AdminDashboard: React.FC = () => {
       {/* Kanban-ish List for Mobile/Desktop */}
       <div className="space-y-4">
         {orders.map(order => (
-            <div key={order.id} className="bg-dark-800 border border-gray-700 rounded-xl p-4 shadow-sm hover:border-gray-600 transition-colors">
-                <div className="flex justify-between items-start mb-3">
+            <div key={order.id} className="bg-dark-800 border border-gray-700 rounded-xl p-4 shadow-sm hover:border-gray-600 transition-colors relative overflow-hidden">
+                {order.appliedReferralCode && (
+                    <div className="absolute top-0 right-0 bg-green-500/20 text-green-400 px-3 py-1 text-[10px] font-bold uppercase rounded-bl-xl border-l border-b border-green-500/30 flex items-center gap-1">
+                        <Ticket className="w-3 h-3" /> Used Code: {order.appliedReferralCode}
+                    </div>
+                )}
+
+                <div className="flex justify-between items-start mb-3 mt-4">
                     <div>
                         <div className="flex items-center gap-2">
                             <span className="font-bold text-white text-lg">#{order.id}</span>
@@ -277,6 +283,12 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                     ))}
                 </div>
+
+                {order.discountAmount ? (
+                     <div className="flex justify-end text-sm text-green-400 mb-2">
+                         <span>Discount Applied: -${order.discountAmount.toFixed(2)}</span>
+                     </div>
+                ) : null}
 
                 <div className="flex flex-col sm:flex-row gap-2 mt-4">
                     {/* Status Actions */}

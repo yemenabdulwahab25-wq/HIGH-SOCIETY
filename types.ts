@@ -59,11 +59,14 @@ export interface Order {
   subtotal: number;
   tax: number;
   deliveryFee: number;
+  discountAmount?: number;      // New: Discount value
   total: number;
   status: OrderStatus;
   timestamp: number;
   type: 'Pickup' | 'Delivery';
   paymentMethod: 'Cash' | 'Card' | 'Online' | 'Crypto';
+  generatedReferralCode?: string; // New: Code created by this order
+  appliedReferralCode?: string;   // New: Code used in this order
 }
 
 export interface HolidayTheme {
@@ -123,6 +126,10 @@ export interface StoreSettings {
     enabled: boolean;
     pointsPerDollar: number;
   };
+  referral: { // New Section
+    enabled: boolean;
+    percentage: number;
+  };
   messages: {
     enabled: boolean;
     template: string;
@@ -170,6 +177,10 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   loyalty: {
     enabled: true,
     pointsPerDollar: 1,
+  },
+  referral: {
+    enabled: true,
+    percentage: 10,
   },
   messages: {
     enabled: true,
