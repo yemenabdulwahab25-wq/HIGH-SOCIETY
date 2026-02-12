@@ -74,14 +74,21 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
     <div className="space-y-6 pb-20">
       {/* Hero / Welcome */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-cannabis-900 to-dark-900 p-8 border border-white/5">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-                <h1 className="text-3xl font-bold text-white mb-2">Welcome to {settings.storeName}</h1>
-                <p className="text-gray-300">Elevate your experience. Premium selection only.</p>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+            <div className="flex items-center gap-6">
+                <div className="hidden md:block w-20 h-20 relative flex-shrink-0">
+                    <img src="/logo.png" alt={settings.storeName} className="w-full h-full object-contain drop-shadow-lg" />
+                </div>
+                <div>
+                    <h1 className="text-3xl font-bold text-white mb-2">Welcome to {settings.storeName}</h1>
+                    <p className="text-gray-300">Elevate your experience. Premium selection only.</p>
+                </div>
             </div>
             <button 
                 onClick={handleShare}
-                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl backdrop-blur-md border border-white/10 transition-colors"
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-xl backdrop-blur-md border border-white/10 transition-colors whitespace-nowrap"
             >
                 <Share2 className="w-5 h-5 text-cannabis-400" />
                 <span className="font-medium">Share Store</span>
@@ -98,7 +105,7 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
             placeholder="Search flavor, brand, or strain..."
             className="w-full bg-dark-800 border border-gray-700 text-white rounded-xl pl-10 pr-4 py-3 focus:ring-2 focus:ring-cannabis-500 focus:outline-none"
             value={search}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         
@@ -176,11 +183,4 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
       )}
     </div>
   );
-};
-
-// Helper for search input
-const setSearchTerm = (val: string) => {
-    // This function is just to satisfy the onChange event above which uses a local state setter with same name concept
-    // In the component, we used 'setSearch' but the onChange was calling setSearchTerm. Fixed below in component logic.
-    return val;
 };
