@@ -138,7 +138,7 @@ export const storage = {
   },
   getSettings: (): StoreSettings => {
     const data = localStorage.getItem(KEYS.SETTINGS);
-    // Use deep merge for holidays to ensure new defaults appear if missing
+    // Use deep merge to ensure new defaults appear if missing
     const settings = data ? JSON.parse(data) : DEFAULT_SETTINGS;
     
     return {
@@ -150,7 +150,8 @@ export const storage = {
         messages: { ...DEFAULT_SETTINGS.messages, ...(settings.messages || {}) },
         visibility: { ...DEFAULT_SETTINGS.visibility, ...(settings.visibility || {}) },
         delivery: { ...DEFAULT_SETTINGS.delivery, ...(settings.delivery || {}) },
-        holidays: settings.holidays && settings.holidays.length > 0 ? settings.holidays : DEFAULT_HOLIDAYS
+        holidays: settings.holidays && settings.holidays.length > 0 ? settings.holidays : DEFAULT_HOLIDAYS,
+        specialEvents: settings.specialEvents || []
     };
   },
   saveSettings: (settings: StoreSettings) => {

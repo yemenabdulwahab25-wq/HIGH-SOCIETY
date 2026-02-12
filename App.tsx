@@ -129,28 +129,28 @@ const AppContent = () => {
       {/* Customer Routes (Protected if enabled) */}
       <Route path="/" element={
         <CustomerRoute settings={settings}>
-          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)}>
+          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)} settings={settings}>
             <Storefront settings={settings} />
           </Layout>
         </CustomerRoute>
       } />
       <Route path="/product/:id" element={
         <CustomerRoute settings={settings}>
-          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)}>
+          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)} settings={settings}>
             <ProductDetails addToCart={addToCart} />
           </Layout>
         </CustomerRoute>
       } />
       <Route path="/cart" element={
         <CustomerRoute settings={settings}>
-          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)}>
+          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)} settings={settings}>
             <Cart cart={cart} removeFromCart={removeFromCart} clearCart={clearCart} settings={settings} />
           </Layout>
         </CustomerRoute>
       } />
       <Route path="/account" element={
         <CustomerRoute settings={settings}>
-          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)}>
+          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)} settings={settings}>
             <Account addToCart={addToCart} />
           </Layout>
         </CustomerRoute>

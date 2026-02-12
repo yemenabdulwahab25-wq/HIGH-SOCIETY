@@ -75,6 +75,17 @@ export interface HolidayTheme {
   enabled: boolean;
 }
 
+export interface SpecialEvent {
+  id: string;
+  title: string;
+  message: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+  backgroundColor: string;
+  textColor: string;
+  enabled: boolean;
+}
+
 export interface StoreSettings {
   storeName: string;
   access: {
@@ -103,6 +114,7 @@ export interface StoreSettings {
     enabled: boolean;
   };
   holidays: HolidayTheme[];
+  specialEvents: SpecialEvent[];
 }
 
 export const DEFAULT_SETTINGS: StoreSettings = {
@@ -132,5 +144,6 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   delivery: {
     enabled: false,
   },
-  holidays: [] // Populated in storage.ts
+  holidays: [], // Populated in storage.ts
+  specialEvents: []
 };

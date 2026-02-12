@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { StoreSettings, HolidayTheme } from '../../types';
+import { StoreSettings, HolidayTheme, SpecialEvent } from '../../types';
 import { storage } from '../../services/storage';
-import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2 } from 'lucide-react';
+import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2, Megaphone } from 'lucide-react';
 
 interface AdminSettingsProps {
   settings: StoreSettings;
@@ -13,6 +13,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
   const [categories, setCategories] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [showAddHoliday, setShowAddHoliday] = useState(false);
+  const [showAddEvent, setShowAddEvent] = useState(false);
   
   // New Holiday Form State
   const [newHoliday, setNewHoliday] = useState<Partial<HolidayTheme>>({
@@ -22,6 +23,17 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
       colors: { primary: '#10b981', accent: '#fbbf24' },
       icon: '🎉',
       enabled: true
+  });
+
+  // New Event Form State
+  const [newEvent, setNewEvent] = useState<Partial<SpecialEvent>>({
+    title: '',
+    message: '',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
+    backgroundColor: '#fbbf24', // Gold
+    textColor: '#000000',
+    enabled: true
   });
 
   useEffect(() => {
@@ -86,6 +98,32 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
       }
   };
 
+  const handleAddEvent = () => {
+    if (!newEvent.title || !newEvent.message) return;
+    const event: SpecialEvent = {
+        id: Math.random().toString(36).substr(2, 9),
+        title: newEvent.title!,
+        message: newEvent.message!,
+        startDate: newEvent.startDate!,
+        endDate: newEvent.endDate!,
+        backgroundColor: newEvent.backgroundColor!,
+        textColor: newEvent.textColor!,
+        enabled: true
+    };
+    
+    const updatedEvents = [...(settings.specialEvents || []), event];
+    updateRootSetting('specialEvents', updatedEvents);
+    setShowAddEvent(false);
+    setNewEvent({ title: '', message: '', startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0], backgroundColor: '#fbbf24', textColor: '#000000', enabled: true });
+  };
+
+  const handleDeleteEvent = (id: string) => {
+    if (window.confirm("Delete this special event?")) {
+        const updatedEvents = settings.specialEvents.filter(e => e.id !== id);
+        updateRootSetting('specialEvents', updatedEvents);
+    }
+  };
+
   const handleDeleteCategory = (cat: string) => {
     if (window.confirm(`Delete category "${cat}"?`)) {
         storage.deleteCategory(cat);
@@ -129,6 +167,85 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
           </div>
       </section>
 
+      {/* Special Events (Banner) */}
+      <section className="bg-dark-800 rounded-xl p-6 border border-gray-700 relative overflow-hidden">
+        <div className="flex items-center justify-between mb-4">
+             <div className="flex items-center gap-2">
+                 <Megaphone className="w-5 h-5 text-cannabis-500" />
+                 <h2 className="text-xl font-bold text-white text-cannabis-400">Special Events</h2>
+             </div>
+             <button 
+               onClick={() => setShowAddEvent(!showAddEvent)}
+               className="flex items-center gap-1 text-xs bg-dark-700 hover:bg-dark-600 px-3 py-1.5 rounded-lg text-white transition-colors"
+             >
+                 <Plus className="w-4 h-4" /> Add Event
+             </button>
+         </div>
+         
+         <p className="text-sm text-gray-400 mb-4">Active events appear as a banner at the top of the store.</p>
+
+         {showAddEvent && (
+             <div className="bg-dark-900 p-4 rounded-xl border border-gray-700 mb-4 animate-in fade-in slide-in-from-top-2">
+                 <div className="mb-3">
+                     <label className="text-xs text-gray-500 block mb-1">Event Name (Internal)</label>
+                     <input className="w-full bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm" value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} placeholder="e.g. Billionaire Day" />
+                 </div>
+                 <div className="mb-3">
+                     <label className="text-xs text-gray-500 block mb-1">Banner Message (Public)</label>
+                     <input className="w-full bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm" value={newEvent.message} onChange={e => setNewEvent({...newEvent, message: e.target.value})} placeholder="e.g. 50% Off Edibles Today Only!" />
+                 </div>
+                 <div className="flex gap-4 mb-3">
+                     <div className="flex-1">
+                         <label className="text-xs text-gray-500 block mb-1">Start Date</label>
+                         <input type="date" className="w-full bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm" value={newEvent.startDate} onChange={e => setNewEvent({...newEvent, startDate: e.target.value})} />
+                     </div>
+                     <div className="flex-1">
+                         <label className="text-xs text-gray-500 block mb-1">End Date</label>
+                         <input type="date" className="w-full bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm" value={newEvent.endDate} onChange={e => setNewEvent({...newEvent, endDate: e.target.value})} />
+                     </div>
+                 </div>
+                 <div className="flex gap-4 mb-4">
+                     <div className="flex-1">
+                          <label className="text-xs text-gray-500 block mb-1">Banner Background</label>
+                          <div className="flex gap-2">
+                              <input type="color" className="h-9 bg-transparent rounded cursor-pointer" value={newEvent.backgroundColor} onChange={e => setNewEvent({...newEvent, backgroundColor: e.target.value})} />
+                              <span className="text-xs text-gray-400 self-center">{newEvent.backgroundColor}</span>
+                          </div>
+                     </div>
+                     <div className="flex-1">
+                          <label className="text-xs text-gray-500 block mb-1">Text Color</label>
+                          <div className="flex gap-2">
+                              <input type="color" className="h-9 bg-transparent rounded cursor-pointer" value={newEvent.textColor} onChange={e => setNewEvent({...newEvent, textColor: e.target.value})} />
+                              <span className="text-xs text-gray-400 self-center">{newEvent.textColor}</span>
+                          </div>
+                     </div>
+                 </div>
+                 <button onClick={handleAddEvent} className="w-full bg-cannabis-600 hover:bg-cannabis-500 text-white font-bold py-2 rounded-lg">Save Event</button>
+             </div>
+         )}
+
+         <div className="space-y-2">
+             {settings.specialEvents?.map(e => (
+                 <div key={e.id} className="flex items-center justify-between p-3 bg-dark-900 border border-gray-800 rounded-xl">
+                     <div>
+                         <div className="font-bold text-white text-sm">{e.title}</div>
+                         <div className="text-xs text-gray-500">"{e.message}"</div>
+                         <div className="text-[10px] text-gray-600 mt-1">{e.startDate} to {e.endDate}</div>
+                     </div>
+                     <div className="flex items-center gap-3">
+                         <div className="w-4 h-4 rounded-full border border-white/10" style={{backgroundColor: e.backgroundColor}} title="Preview Color"></div>
+                         <button onClick={() => handleDeleteEvent(e.id)} className="text-gray-500 hover:text-red-500">
+                             <Trash2 className="w-4 h-4" />
+                         </button>
+                     </div>
+                 </div>
+             ))}
+             {(!settings.specialEvents || settings.specialEvents.length === 0) && (
+                 <div className="text-center py-4 text-gray-500 text-sm">No special events scheduled.</div>
+             )}
+         </div>
+      </section>
+
       {/* Holiday Themes */}
       <section className="bg-dark-800 rounded-xl p-6 border border-gray-700 relative overflow-hidden">
           <div className="flex items-center justify-between mb-4">
@@ -140,17 +257,17 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
                 onClick={() => setShowAddHoliday(!showAddHoliday)}
                 className="flex items-center gap-1 text-xs bg-dark-700 hover:bg-dark-600 px-3 py-1.5 rounded-lg text-white transition-colors"
               >
-                  <Plus className="w-4 h-4" /> Add Event
+                  <Plus className="w-4 h-4" /> Add Theme
               </button>
           </div>
 
-          <p className="text-sm text-gray-400 mb-4">Themes automatically apply on these dates.</p>
+          <p className="text-sm text-gray-400 mb-4">Changes app colors on specific dates.</p>
 
           {showAddHoliday && (
               <div className="bg-dark-900 p-4 rounded-xl border border-gray-700 mb-4 animate-in fade-in slide-in-from-top-2">
                   <div className="grid grid-cols-2 gap-4 mb-3">
                       <input 
-                        placeholder="Event Name (e.g. 4/20)" 
+                        placeholder="Theme Name (e.g. 4/20)" 
                         className="bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm"
                         value={newHoliday.name}
                         onChange={e => setNewHoliday({...newHoliday, name: e.target.value})}
@@ -196,7 +313,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
                           </div>
                       </div>
                   </div>
-                  <button onClick={handleAddHoliday} className="w-full bg-cannabis-600 hover:bg-cannabis-500 text-white font-bold py-2 rounded-lg">Save Holiday</button>
+                  <button onClick={handleAddHoliday} className="w-full bg-cannabis-600 hover:bg-cannabis-500 text-white font-bold py-2 rounded-lg">Save Theme</button>
               </div>
           )}
 
@@ -224,7 +341,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
                   </div>
               ))}
               {(!settings.holidays || settings.holidays.length === 0) && (
-                  <div className="text-center py-4 text-gray-500 text-sm">No holidays configured.</div>
+                  <div className="text-center py-4 text-gray-500 text-sm">No themes configured.</div>
               )}
           </div>
       </section>

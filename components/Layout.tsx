@@ -1,23 +1,41 @@
+
 import React from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, User, LogOut, Menu, Users } from 'lucide-react';
+import { ShoppingBag, User, LogOut, Menu, Users, Megaphone } from 'lucide-react';
 import { CustomerServiceChat } from './CustomerServiceChat';
+import { StoreSettings } from '../types';
 
 interface LayoutProps {
   children?: React.ReactNode;
   isAdmin?: boolean;
   cartCount?: number;
+  settings?: StoreSettings;
 }
 
-export const Layout = ({ children, isAdmin, cartCount = 0 }: LayoutProps) => {
+export const Layout = ({ children, isAdmin, cartCount = 0, settings }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Redirect customers from admin routes if not authenticated
-  // (In a real app, this check would be more robust, here we rely on the parent wrapper logic)
+  // Check for active Special Event
+  const today = new Date().toISOString().split('T')[0];
+  const activeEvent = !isAdmin && settings?.specialEvents?.find(e => 
+    e.enabled && e.startDate <= today && e.endDate >= today
+  );
 
   return (
     <div className="min-h-screen bg-dark-950 text-gray-100 flex flex-col font-sans">
+      
+      {/* Special Event Banner */}
+      {activeEvent && (
+        <div style={{ backgroundColor: activeEvent.backgroundColor, color: activeEvent.textColor }} className="w-full py-2 px-4 text-center relative z-[60] shadow-xl animate-in fade-in slide-in-from-top-5">
+           <div className="max-w-4xl mx-auto flex items-center justify-center gap-3">
+              <Megaphone className="w-4 h-4 animate-bounce" />
+              <span className="font-bold uppercase tracking-widest text-xs md:text-sm opacity-80">{activeEvent.title}:</span>
+              <span className="font-bold text-sm md:text-base">{activeEvent.message}</span>
+           </div>
+        </div>
+      )}
+
       {!isAdmin && (
         <header className="sticky top-0 z-50 bg-dark-950/80 backdrop-blur-md border-b border-white/10">
           <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
