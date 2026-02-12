@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Flame, Moon, ShieldCheck, Zap } from 'lucide-react';
+import { ArrowLeft, Flame, Moon, ShieldCheck, Zap } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
 export const Guide: React.FC = () => {
@@ -20,8 +20,8 @@ export const Guide: React.FC = () => {
       <div className="max-w-3xl mx-auto px-6 py-12 space-y-12">
         {/* Hero */}
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 bg-gradient-to-tr from-cannabis-600 to-gold-400 rounded-full flex items-center justify-center mx-auto shadow-2xl shadow-cannabis-500/20">
-            <BookOpen className="w-8 h-8 text-white" />
+          <div className="w-24 h-24 mx-auto drop-shadow-2xl">
+            <img src="/logo.png" alt="Billionaire Level" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
             The Art of Elevation
@@ -47,7 +47,7 @@ export const Guide: React.FC = () => {
               </p>
               <ul className="space-y-2 border-l-2 border-purple-500/30 pl-4 my-4">
                 <li className="flex items-center gap-2"><Zap className="w-4 h-4 text-purple-400" /> <strong>Onset:</strong> 30 minutes to 2 hours.</li>
-                <li className="flex items-center gap-2"><Clock className="w-4 h-4 text-purple-400" /> <strong>Duration:</strong> 4 to 8 hours.</li>
+                <li className="flex items-center gap-2"><div className="w-4 h-4 flex items-center justify-center"><div className="w-3 h-3 border-2 border-purple-400 rounded-full" /></div> <strong>Duration:</strong> 4 to 8 hours.</li>
               </ul>
               <p className="text-sm bg-dark-950/50 p-4 rounded-xl border border-gray-700">
                 <span className="text-purple-400 font-bold">Pro Tip:</span> Do not re-dose within the first 90 minutes, even if you "don't feel anything yet." Patience is the ultimate luxury.
@@ -126,8 +126,3 @@ export const Guide: React.FC = () => {
     </div>
   );
 };
-
-// Icon Helper
-const Clock = ({ className }: { className?: string }) => (
-    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-);
