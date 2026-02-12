@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { storage } from '../../services/storage';
 import { Order, OrderStatus } from '../../types';
-import { Clock, CheckCircle, Package, Truck, DollarSign, Calendar, TrendingUp, AlertTriangle, MessageSquare, Copy, X, Send } from 'lucide-react';
+import { Clock, CheckCircle, Package, Truck, DollarSign, Calendar, TrendingUp, AlertTriangle, MessageSquare, Copy, X, Send, Bell } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -14,6 +15,10 @@ export const AdminDashboard: React.FC = () => {
       totalItems: 0
   });
 
+  // Notification State
+  const [newOrderAlert, setNewOrderAlert] = useState(false);
+  const previousOrderCount = useRef<number>(0);
+
   // Message Modal State
   const [msgModal, setMsgModal] = useState<{isOpen: boolean, order: Order | null, text: string}>({
       isOpen: false, 
@@ -21,10 +26,41 @@ export const AdminDashboard: React.FC = () => {
       text: ''
   });
 
+  // Simple Beep Sound using Web Audio API (No external file needed)
+  const playNotificationSound = () => {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.5);
+    osc.stop(ctx.currentTime + 0.5);
+  };
+
   const loadData = () => {
       const allOrders = storage.getOrders();
       setOrders(allOrders);
       
+      // Check for new orders
+      const currentCount = allOrders.length;
+      if (previousOrderCount.current > 0 && currentCount > previousOrderCount.current) {
+          setNewOrderAlert(true);
+          playNotificationSound();
+          // Auto-hide alert after 5 seconds
+          setTimeout(() => setNewOrderAlert(false), 5000);
+      }
+      previousOrderCount.current = currentCount;
+
       const allProducts = storage.getProducts();
       
       // Calculate Stats
@@ -110,7 +146,24 @@ export const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-8 pb-20 relative">
+      
+      {/* New Order Notification Toast */}
+      {newOrderAlert && (
+        <div className="fixed top-20 right-4 z-50 bg-cannabis-600 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 animate-in fade-in slide-in-from-right">
+            <div className="bg-white/20 p-2 rounded-full animate-bounce">
+                <Bell className="w-6 h-6" />
+            </div>
+            <div>
+                <h4 className="font-bold text-lg">New Order Received!</h4>
+                <p className="text-cannabis-100 text-sm">Check the list below.</p>
+            </div>
+            <button onClick={() => setNewOrderAlert(false)} className="ml-2 hover:text-gray-200">
+                <X className="w-5 h-5" />
+            </button>
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-white">Dashboard</h1>
           <span className="text-sm text-gray-500 flex items-center gap-2">
@@ -190,7 +243,7 @@ export const AdminDashboard: React.FC = () => {
                         <p className="text-gray-400 text-sm mt-1">{order.customerName} • {order.customerPhone}</p>
                     </div>
                     <div className="text-right">
-                        <div className="font-bold text-white">${order.total}</div>
+                        <div className="font-bold text-white">${order.total.toFixed(2)}</div>
                         <div className="text-xs text-gray-500">{new Date(order.timestamp).toLocaleTimeString()}</div>
                     </div>
                 </div>
