@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { StoreSettings } from '../types';
 
 interface StoreAccessProps {
@@ -33,9 +33,9 @@ export const StoreAccess: React.FC<StoreAccessProps> = ({ settings }) => {
 
       <div className="w-full max-w-sm bg-dark-900/80 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl relative z-10">
         <div className="flex justify-center mb-6">
-          <div className="w-20 h-20 bg-gradient-to-br from-dark-800 to-dark-950 rounded-2xl flex items-center justify-center border border-white/5 shadow-inner relative group">
-            <Lock className="w-8 h-8 text-cannabis-500 relative z-10" />
-            <div className="absolute inset-0 bg-cannabis-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all"></div>
+          <div className="w-32 h-32 flex items-center justify-center relative group">
+            <img src="/logo.png" alt="Billionaire Level" className="w-full h-full object-contain drop-shadow-2xl relative z-10" />
+            <div className="absolute inset-0 bg-cannabis-500/20 rounded-full blur-xl group-hover:blur-2xl transition-all"></div>
           </div>
         </div>
         

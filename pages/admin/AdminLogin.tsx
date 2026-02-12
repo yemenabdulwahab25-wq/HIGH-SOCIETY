@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock } from 'lucide-react';
 
 export const AdminLogin: React.FC = () => {
   const [pin, setPin] = useState('');
@@ -30,9 +29,7 @@ export const AdminLogin: React.FC = () => {
     <div className="min-h-screen bg-dark-950 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm bg-dark-900 p-8 rounded-2xl border border-gray-800 shadow-2xl">
         <div className="flex justify-center mb-6">
-          <div className="w-12 h-12 bg-dark-800 rounded-full flex items-center justify-center border border-gray-700">
-            <Lock className="w-6 h-6 text-cannabis-500" />
-          </div>
+           <img src="/logo.png" alt="Billionaire Level" className="w-24 h-24 object-contain drop-shadow-xl" />
         </div>
         <h1 className="text-2xl font-bold text-center text-white mb-2">Restricted Access</h1>
         <p className="text-gray-500 text-center mb-8">Enter Rambo PIN to continue.</p>

@@ -21,11 +21,9 @@ export const Layout = ({ children, isAdmin, cartCount = 0 }: LayoutProps) => {
       {!isAdmin && (
         <header className="sticky top-0 z-50 bg-dark-950/80 backdrop-blur-md border-b border-white/10">
           <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
-               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cannabis-600 to-gold-400 flex items-center justify-center">
-                 <span className="text-white font-bold text-xs">BL</span>
-               </div>
-               <span className="font-bold text-lg tracking-tight text-white">BILLIONAIRE LEVEL</span>
+            <Link to="/" className="flex items-center gap-3">
+               <img src="/logo.png" alt="Billionaire Level" className="w-10 h-10 object-contain drop-shadow-lg" />
+               <span className="font-bold text-lg tracking-tight text-white hidden sm:block">BILLIONAIRE LEVEL</span>
             </Link>
             
             <div className="flex items-center gap-4">
@@ -49,8 +47,9 @@ export const Layout = ({ children, isAdmin, cartCount = 0 }: LayoutProps) => {
         <header className="sticky top-0 z-50 bg-dark-900 border-b border-gray-800">
            <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
              <div className="flex items-center gap-2">
+               <img src="/logo.png" alt="Admin" className="w-8 h-8 object-contain" />
                <span className="text-cannabis-500 font-bold text-xl">ADMIN</span>
-               <span className="text-gray-500 text-sm">| Rambo Mode</span>
+               <span className="text-gray-500 text-sm hidden md:inline">| Rambo Mode</span>
              </div>
              <nav className="hidden md:flex items-center gap-6">
                <Link to="/admin/dashboard" className={`text-sm font-medium ${location.pathname.includes('dashboard') ? 'text-cannabis-500' : 'text-gray-400'}`}>Dashboard</Link>
