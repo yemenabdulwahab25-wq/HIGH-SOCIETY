@@ -632,7 +632,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
       <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
           <h2 className="text-xl font-bold text-white mb-4 text-cannabis-400">Messages</h2>
           <Toggle 
-            label="Send 'Picked Up' Message" 
+            label="Enable Customer SMS Notifications" 
             checked={settings.messages.enabled} 
             onChange={(v) => updateSetting('messages', 'enabled', v)} 
           />

@@ -1,10 +1,11 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, User, LogOut, Menu, Users, Megaphone } from 'lucide-react';
+import { ShoppingBag, User, LogOut, Menu, Users, Megaphone, Bell, CheckCircle } from 'lucide-react';
 import { CustomerServiceChat } from './CustomerServiceChat';
-import { StoreSettings } from '../types';
+import { StoreSettings, OrderStatus } from '../types';
 import { Logo } from './Logo';
+import { storage } from '../services/storage';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -16,6 +17,7 @@ interface LayoutProps {
 export const Layout = ({ children, isAdmin, cartCount = 0, settings }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [readyOrder, setReadyOrder] = useState<any>(null);
 
   // Check for active Special Event
   const today = new Date().toISOString().split('T')[0];
@@ -23,17 +25,58 @@ export const Layout = ({ children, isAdmin, cartCount = 0, settings }: LayoutPro
     e.enabled && e.startDate <= today && e.endDate >= today
   );
 
+  // In-App Notification Polling (Only for customers)
+  useEffect(() => {
+    if (isAdmin) return;
+
+    const interval = setInterval(() => {
+        const userJson = localStorage.getItem('hs_customer_info');
+        if (userJson) {
+            const user = JSON.parse(userJson);
+            const orders = storage.getOrders();
+            // Find active READY order for this user
+            const ready = orders.find(o => 
+                o.customerPhone === user.phone && 
+                o.status === OrderStatus.READY
+            );
+            setReadyOrder(ready || null);
+        }
+    }, 4000); // Check every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [isAdmin]);
+
   return (
     <div className="min-h-screen bg-dark-950 text-gray-100 flex flex-col font-sans">
       
       {/* Special Event Banner */}
-      {activeEvent && (
+      {activeEvent && !readyOrder && (
         <div style={{ backgroundColor: activeEvent.backgroundColor, color: activeEvent.textColor }} className="w-full py-2 px-4 text-center relative z-[60] shadow-xl animate-in fade-in slide-in-from-top-5">
            <div className="max-w-4xl mx-auto flex items-center justify-center gap-3">
               <Megaphone className="w-4 h-4 animate-bounce" />
               <span className="font-bold uppercase tracking-widest text-xs md:text-sm opacity-80">{activeEvent.title}:</span>
               <span className="font-bold text-sm md:text-base">{activeEvent.message}</span>
            </div>
+        </div>
+      )}
+
+      {/* READY FOR PICKUP BANNER (Highest Priority) */}
+      {readyOrder && !isAdmin && (
+        <div className="w-full py-3 px-4 bg-green-600 text-white relative z-[70] shadow-2xl animate-in fade-in slide-in-from-top-5">
+            <div className="max-w-4xl mx-auto flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="bg-white/20 p-1.5 rounded-full animate-pulse">
+                        <CheckCircle className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                        <span className="font-bold uppercase tracking-wider text-xs block opacity-80">Notification</span>
+                        <span className="font-bold text-sm md:text-base">Order #{readyOrder.id} is READY for Pickup!</span>
+                    </div>
+                </div>
+                <Link to="/account" className="bg-white text-green-700 px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors">
+                    View
+                </Link>
+            </div>
         </div>
       )}
 
@@ -54,8 +97,9 @@ export const Layout = ({ children, isAdmin, cartCount = 0, settings }: LayoutPro
                   </span>
                 )}
               </Link>
-              <Link to="/account" className="p-2 hover:bg-white/5 rounded-full transition-colors">
+              <Link to="/account" className="p-2 hover:bg-white/5 rounded-full transition-colors relative">
                 <User className="w-6 h-6 text-gray-300" />
+                {readyOrder && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-green-500 rounded-full border border-black animate-pulse"></span>}
               </Link>
             </div>
           </div>

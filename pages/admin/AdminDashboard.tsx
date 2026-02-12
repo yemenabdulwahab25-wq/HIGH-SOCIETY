@@ -109,17 +109,39 @@ export const AdminDashboard: React.FC = () => {
         storage.saveOrder(order);
         loadData();
         
-        // Trigger Message Modal on Pickup
-        if (status === OrderStatus.PICKED_UP) {
-            const settings = storage.getSettings();
-            if (settings.messages.enabled) {
-                // Construct message with Guide link
+        // Trigger Message Modal based on status
+        const settings = storage.getSettings();
+        if (settings.messages.enabled) {
+            let message = '';
+            
+            if (status === OrderStatus.READY) {
+                // READY Notification
+                message = `Hi ${order.customerName}, your order #${order.id} is READY for pickup at ${settings.storeName}! 🛍️\n\nTotal due: $${order.total.toFixed(2)}.\n\nSee you soon!`;
+                setMsgModal({ isOpen: true, order: order, text: message });
+            
+            } else if (status === OrderStatus.PICKED_UP) {
+                // PICKED UP Notification
                 const guideLink = `${window.location.origin}/#/guide`;
-                const message = `Hi ${order.customerName}, thanks for picking up from ${settings.storeName}! ${settings.messages.template}\n\nEnjoy responsibly. Check out our Connoisseur Guide here: ${guideLink}`;
+                message = `Hi ${order.customerName}, thanks for picking up from ${settings.storeName}! ${settings.messages.template}\n\nEnjoy responsibly. Check out our Connoisseur Guide here: ${guideLink}`;
                 setMsgModal({ isOpen: true, order: order, text: message });
             }
         }
     }
+  };
+
+  // Manual Notification Trigger
+  const handleManualNotify = (order: Order) => {
+      const settings = storage.getSettings();
+      let message = '';
+      if (order.status === OrderStatus.READY) {
+          message = `Hi ${order.customerName}, your order #${order.id} is READY for pickup at ${settings.storeName}! 🛍️\n\nTotal due: $${order.total.toFixed(2)}.\n\nSee you soon!`;
+      } else if (order.status === OrderStatus.PICKED_UP) {
+          const guideLink = `${window.location.origin}/#/guide`;
+          message = `Hi ${order.customerName}, thanks for picking up from ${settings.storeName}! ${settings.messages.template}\n\nEnjoy responsibly. Guide: ${guideLink}`;
+      } else {
+          message = `Hi ${order.customerName}, regarding your order #${order.id} at ${settings.storeName}. Current Status: ${order.status}.`;
+      }
+      setMsgModal({ isOpen: true, order: order, text: message });
   };
 
   const handleSendSMS = () => {
@@ -256,25 +278,39 @@ export const AdminDashboard: React.FC = () => {
                     ))}
                 </div>
 
-                <div className="flex gap-2 mt-4">
-                    {order.status === OrderStatus.PLACED && (
-                        <button onClick={() => updateStatus(order.id, OrderStatus.ACCEPTED)} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg font-medium text-sm">
-                            Accept Order
-                        </button>
+                <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                    {/* Status Actions */}
+                    <div className="flex-1 flex gap-2">
+                        {order.status === OrderStatus.PLACED && (
+                            <button onClick={() => updateStatus(order.id, OrderStatus.ACCEPTED)} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-lg font-medium text-sm transition-colors">
+                                Accept Order
+                            </button>
+                        )}
+                        {order.status === OrderStatus.ACCEPTED && (
+                            <button onClick={() => updateStatus(order.id, OrderStatus.READY)} className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white py-2 rounded-lg font-medium text-sm transition-colors">
+                                Mark Ready
+                            </button>
+                        )}
+                        {order.status === OrderStatus.READY && (
+                            <button onClick={() => updateStatus(order.id, OrderStatus.PICKED_UP)} className="flex-1 bg-cannabis-600 hover:bg-cannabis-500 text-white py-2 rounded-lg font-medium text-sm transition-colors">
+                                Complete (Picked Up)
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Manual Notify Button */}
+                    <button 
+                        onClick={() => handleManualNotify(order)} 
+                        className="px-3 py-2 bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                        title="Resend Notification"
+                    >
+                        <MessageSquare className="w-4 h-4" /> <span className="sm:hidden">Notify</span>
+                    </button>
+
+                    {/* Cancel Button */}
+                    {order.status !== OrderStatus.PICKED_UP && order.status !== OrderStatus.CANCELLED && (
+                         <button onClick={() => updateStatus(order.id, OrderStatus.CANCELLED)} className="px-3 py-2 bg-dark-700 text-red-400 rounded-lg hover:bg-dark-600 text-sm transition-colors">X</button>
                     )}
-                    {order.status === OrderStatus.ACCEPTED && (
-                        <button onClick={() => updateStatus(order.id, OrderStatus.READY)} className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white py-2 rounded-lg font-medium text-sm">
-                            Mark Ready
-                        </button>
-                    )}
-                    {order.status === OrderStatus.READY && (
-                        <button onClick={() => updateStatus(order.id, OrderStatus.PICKED_UP)} className="flex-1 bg-cannabis-600 hover:bg-cannabis-500 text-white py-2 rounded-lg font-medium text-sm">
-                            Complete (Picked Up)
-                        </button>
-                    )}
-                     {order.status !== OrderStatus.PICKED_UP && order.status !== OrderStatus.CANCELLED && (
-                         <button onClick={() => updateStatus(order.id, OrderStatus.CANCELLED)} className="px-3 py-2 bg-dark-700 text-red-400 rounded-lg hover:bg-dark-600 text-sm">X</button>
-                     )}
                 </div>
             </div>
         ))}
@@ -302,10 +338,10 @@ export const AdminDashboard: React.FC = () => {
                       <div className="w-10 h-10 rounded-full bg-cannabis-500/20 text-cannabis-400 flex items-center justify-center">
                           <MessageSquare className="w-5 h-5" />
                       </div>
-                      <h2 className="text-xl font-bold text-white">Send Pickup Message</h2>
+                      <h2 className="text-xl font-bold text-white">Send SMS Notification</h2>
                   </div>
 
-                  <p className="text-sm text-gray-400 mb-2">Generated message with Guide link:</p>
+                  <p className="text-sm text-gray-400 mb-2">Generated message for {msgModal.order?.customerName}:</p>
                   <div className="bg-dark-900 p-4 rounded-xl border border-gray-700 text-sm text-white font-mono whitespace-pre-wrap leading-relaxed mb-6">
                       {msgModal.text}
                   </div>
