@@ -87,7 +87,7 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
             <div className="flex items-center gap-6">
                 <div className="hidden md:block w-24 h-24 relative flex-shrink-0 group">
                     <div className="absolute inset-0 bg-gold-500/20 rounded-full blur-xl group-hover:blur-2xl transition-all opacity-50"></div>
-                    <img src="/logo.png" alt={settings.storeName} className="w-full h-full object-contain drop-shadow-2xl relative z-10 transform transition-transform group-hover:scale-105" />
+                    <img src="/logo.svg" alt={settings.storeName} className="w-full h-full object-contain drop-shadow-2xl relative z-10 transform transition-transform group-hover:scale-105" />
                 </div>
                 <div>
                     <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 tracking-tight">

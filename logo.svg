@@ -1,0 +1,13 @@
+
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="512" height="512" rx="100" fill="#030712"/>
+<circle cx="256" cy="256" r="200" stroke="#FBBF24" stroke-width="8" stroke-opacity="0.3"/>
+<path d="M256 60C256 60 310 170 340 200C370 230 420 230 420 230C420 230 380 270 350 280C320 290 290 270 256 410C222 270 192 290 162 280C132 270 92 230 92 230C92 230 142 230 172 200C202 170 256 60 256 60Z" fill="url(#leaf_gradient)"/>
+<path d="M256 410V450" stroke="#FBBF24" stroke-width="12" stroke-linecap="round"/>
+<defs>
+<linearGradient id="leaf_gradient" x1="256" y1="60" x2="256" y2="410" gradientUnits="userSpaceOnUse">
+<stop stop-color="#10B981"/>
+<stop offset="1" stop-color="#047857"/>
+</linearGradient>
+</defs>
+</svg>
