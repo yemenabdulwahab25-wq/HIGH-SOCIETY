@@ -64,6 +64,24 @@ export const AdminInventory: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const brandLogoInputRef = useRef<HTMLInputElement>(null);
 
+  // Helper to get correct defaults based on type
+  const getDefaults = (type: ProductType): Product => {
+      if (type === 'Vape') {
+          return {
+              ...INITIAL_FORM,
+              productType: 'Vape',
+              category: 'Vape',
+              weights: [{ label: 'Single Unit', price: 20, weightGrams: 0, stock: 50 }]
+          };
+      }
+      return {
+          ...INITIAL_FORM,
+          productType: 'Cannabis',
+          category: Category.FLOWER,
+          weights: [{ label: '3.5g', price: 40, weightGrams: 3.5, stock: 10 }]
+      };
+  };
+
   useEffect(() => {
     const load = () => {
         setProducts(storage.getProducts());
@@ -87,12 +105,7 @@ export const AdminInventory: React.FC = () => {
   // Sync Form Defaults when switching List Tabs (Only if adding new)
   useEffect(() => {
     if (!form.id) {
-        setForm(prev => ({
-            ...prev,
-            productType: activeTab,
-            category: activeTab === 'Vape' ? 'Vape' : Category.FLOWER,
-            weights: activeTab === 'Vape' ? [{ label: 'Single Unit', price: 20, weightGrams: 0, stock: 50 }] : INITIAL_FORM.weights
-        }));
+        setForm(getDefaults(activeTab));
     }
   }, [activeTab]);
 
@@ -103,13 +116,12 @@ export const AdminInventory: React.FC = () => {
   const handleTypeChange = (type: ProductType) => {
       // When manually changing type in form, update form and list context
       setActiveTab(type);
-      setForm(prev => ({
-          ...prev,
-          productType: type,
-          // Reset relevant fields for the new type
-          category: type === 'Vape' ? 'Vape' : Category.FLOWER,
-          weights: type === 'Vape' ? [{ label: 'Single Unit', price: 20, weightGrams: 0, stock: 50 }] : INITIAL_FORM.weights
-      }));
+      if (!form.id) {
+          setForm(getDefaults(type));
+      } else {
+          // Just update the type field if editing
+          setForm(prev => ({ ...prev, productType: type }));
+      }
   };
 
   const handleWeightChange = (index: number, field: keyof ProductWeight, value: any) => {
@@ -271,36 +283,57 @@ export const AdminInventory: React.FC = () => {
 
   const handleClear = () => {
     if (window.confirm("Are you sure you want to clear the form?")) {
-      setForm({ ...INITIAL_FORM, id: '', productType: activeTab });
+      setForm(getDefaults(activeTab));
       setNotifyCustomers(false);
     }
   };
 
-  const handleSave = async () => {
-    if (!form.brand || !form.flavor) {
+  const handleSave = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    
+    // Basic Validation
+    if (!form.brand?.trim() || !form.flavor?.trim()) {
         alert("Brand and Flavor are required.");
         return;
     }
-    const totalStock = form.weights.reduce((acc, w) => acc + (Number(w.stock) || 0), 0);
+
+    // Ensure numeric values are numbers
+    const validWeights = form.weights.map(w => ({
+        ...w,
+        stock: Number(w.stock) || 0,
+        price: Number(w.price) || 0
+    }));
+
+    const totalStock = validWeights.reduce((acc, w) => acc + w.stock, 0);
+    
     const newProduct: Product = {
         ...form,
+        brand: form.brand.trim(),
+        flavor: form.flavor.trim(),
+        weights: validWeights,
         id: form.id || Math.random().toString(36).substr(2, 9),
         stock: totalStock,
         isPublished: true,
         // Product Type is already in form state
     };
     
-    storage.saveProduct(newProduct);
-    localStorage.removeItem('hs_product_draft');
+    try {
+        storage.saveProduct(newProduct);
+        localStorage.removeItem('hs_product_draft');
 
-    // Trigger Email Flow
-    if (notifyCustomers) {
-        const copy = await generateMarketingEmail('Product_Drop', newProduct);
-        setEmailPreview({ isOpen: true, subject: copy.subject, body: copy.body });
-    } else {
-        // Just reset if no email needed
-        setForm({ ...INITIAL_FORM, id: '', productType: activeTab }); 
-        alert("Product Saved Successfully!");
+        // Trigger Email Flow
+        if (notifyCustomers) {
+            const copy = await generateMarketingEmail('Product_Drop', newProduct);
+            setEmailPreview({ isOpen: true, subject: copy.subject, body: copy.body });
+        } else {
+            // Reset nicely to current tab defaults
+            setForm(getDefaults(activeTab)); 
+            setNotifyCustomers(false);
+            alert("Product Saved Successfully!");
+        }
+    } catch (err) {
+        console.error("Save Error:", err);
+        alert("An error occurred while saving. Please try again.");
     }
   };
 
@@ -311,7 +344,7 @@ export const AdminInventory: React.FC = () => {
       if (emails.length === 0) {
           alert("No customer emails found in order history to send to.");
           setEmailPreview(null);
-          setForm({ ...INITIAL_FORM, id: '', productType: activeTab });
+          setForm(getDefaults(activeTab));
           setNotifyCustomers(false);
           return;
       }
@@ -319,7 +352,7 @@ export const AdminInventory: React.FC = () => {
       // Simulate sending
       alert(`Email Blast Sent to ${emails.length} customers!\n\nSubject: ${emailPreview.subject}`);
       setEmailPreview(null);
-      setForm({ ...INITIAL_FORM, id: '', productType: activeTab });
+      setForm(getDefaults(activeTab));
       setNotifyCustomers(false);
   };
 
@@ -734,7 +767,7 @@ export const AdminInventory: React.FC = () => {
             <Button variant="secondary" onClick={handleClear} className="w-1/3">
               <RotateCcw className="w-4 h-4 mr-2" /> Clear
             </Button>
-            <Button fullWidth size="lg" onClick={handleSave} className={`flex-1 ${isVapeForm ? 'bg-blue-600 hover:bg-blue-500' : ''}`}>
+            <Button fullWidth size="lg" type="button" onClick={handleSave} className={`flex-1 ${isVapeForm ? 'bg-blue-600 hover:bg-blue-500' : ''}`}>
                 <Save className="w-5 h-5 mr-2" /> Save & {notifyCustomers ? 'Notify' : 'Finish'}
             </Button>
           </div>
@@ -876,7 +909,7 @@ export const AdminInventory: React.FC = () => {
                       <h3 className="font-bold text-white flex items-center gap-2">
                           <Mail className="w-5 h-5 text-cannabis-500" /> Review Email Blast
                       </h3>
-                      <button onClick={() => { setEmailPreview(null); setNotifyCustomers(false); setForm({ ...INITIAL_FORM, id: '', productType: activeTab }); }} className="text-gray-500 hover:text-white">
+                      <button onClick={() => { setEmailPreview(null); setNotifyCustomers(false); setForm(getDefaults(activeTab)); }} className="text-gray-500 hover:text-white">
                           <X className="w-5 h-5" />
                       </button>
                   </div>
@@ -903,7 +936,7 @@ export const AdminInventory: React.FC = () => {
                           <Button 
                             variant="secondary" 
                             fullWidth 
-                            onClick={() => { setEmailPreview(null); setNotifyCustomers(false); setForm({ ...INITIAL_FORM, id: '', productType: activeTab }); }}
+                            onClick={() => { setEmailPreview(null); setNotifyCustomers(false); setForm(getDefaults(activeTab)); }}
                           >
                               Skip
                           </Button>
