@@ -1,5 +1,5 @@
 
-import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category, HolidayTheme, Review, Customer } from '../types';
+import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category, HolidayTheme, Review, Customer, CartItem } from '../types';
 
 const KEYS = {
   PRODUCTS: 'hs_products',
@@ -182,6 +182,56 @@ export const storage = {
      notifyUpdate();
   },
   
+  // --- INVENTORY MANAGEMENT ---
+  // THIS IS THE CRITICAL FUNCTION FOR AUTOMATIC UPDATES
+  deductStock: (items: CartItem[]): boolean => {
+      const allProducts = storage.getProducts();
+      let inventoryUpdated = false;
+
+      // Check if stock is sufficient first
+      for (const item of items) {
+          const product = allProducts.find(p => p.id === item.id);
+          if (!product) return false;
+          
+          const variant = product.weights.find(w => w.label === item.selectedWeight.label);
+          if (!variant) return false;
+
+          if (variant.stock < item.quantity) {
+              return false; // Prevent checkout if stock changed while in cart
+          }
+      }
+
+      // Deduct Stock
+      items.forEach(item => {
+          const productIndex = allProducts.findIndex(p => p.id === item.id);
+          if (productIndex >= 0) {
+              const product = allProducts[productIndex];
+              const variantIndex = product.weights.findIndex(w => w.label === item.selectedWeight.label);
+              
+              if (variantIndex >= 0) {
+                  // Subtract from Variant
+                  product.weights[variantIndex].stock -= item.quantity;
+                  // Subtract from Total Product Stock
+                  product.stock -= item.quantity;
+                  
+                  // Ensure no negative numbers
+                  if (product.weights[variantIndex].stock < 0) product.weights[variantIndex].stock = 0;
+                  if (product.stock < 0) product.stock = 0;
+
+                  allProducts[productIndex] = product;
+                  inventoryUpdated = true;
+              }
+          }
+      });
+
+      if (inventoryUpdated) {
+          localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(allProducts));
+          notifyUpdate();
+          return true;
+      }
+      return false;
+  },
+
   // --- SECURE ORDER STORAGE ---
   getOrders: (): Order[] => {
     const data = localStorage.getItem(KEYS.ORDERS);

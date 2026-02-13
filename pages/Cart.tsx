@@ -171,6 +171,14 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
         return;
     }
 
+    // AUTOMATIC STOCK UPDATE
+    const success = storage.deductStock(cart);
+    if (!success) {
+        alert("Some items in your cart are no longer available or have insufficient stock. Please update your cart.");
+        setStep('cart');
+        return;
+    }
+
     // Generate a unique referral code for this new order
     const newRefCode = `REF-${Math.random().toString(36).substr(2, 4).toUpperCase()}${Math.floor(Math.random() * 100)}`;
     setGeneratedCode(newRefCode);
