@@ -15,14 +15,19 @@ export const generateDescription = async (brand: string, flavor: string, strainO
         prompt = `Write a short, punchy, energetic 2-sentence description for a nicotine vape product.
         Brand: ${brand}
         Flavor: ${flavor}
-        Puff Count/Type: ${strainOrType}
-        Focus on flavor intensity, cloud production, and longevity. Do not mention cannabis/THC effects.`;
+        Specs: ${strainOrType}
+        Focus on flavor intensity, cloud production, and mention the device longevity or battery efficiency based on the puff count. Do not mention cannabis/THC effects.`;
     } else {
         prompt = `Write a short, premium, seductive 2-sentence description for a cannabis product.
         Brand: ${brand}
         Flavor: ${flavor}
-        Strain: ${strainOrType}
-        Focus on flavor notes and effects. Do not make medical claims.`;
+        Strain Type: ${strainOrType}
+        
+        Requirements:
+        - Mention specific flavor notes (terpenes) associated with the name/strain.
+        - Describe potential effects typical for a ${strainOrType} (e.g., deep relaxation for Indica, creative energy for Sativa, balanced buzz for Hybrid).
+        - Use luxurious, sensory language.
+        - Do not make medical claims.`;
     }
 
     const response = await ai.models.generateContent({
