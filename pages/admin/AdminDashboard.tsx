@@ -2,10 +2,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { storage } from '../../services/storage';
 import { Order, OrderStatus } from '../../types';
-import { Clock, CheckCircle, Package, Truck, DollarSign, Calendar, TrendingUp, AlertTriangle, MessageSquare, Copy, X, Send, Bell, Ticket } from 'lucide-react';
+import { Clock, CheckCircle, Package, Truck, DollarSign, Calendar, TrendingUp, AlertTriangle, MessageSquare, Copy, X, Send, Bell, Ticket, Search, Filter, RotateCcw } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
+  
+  // Filter States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'All'>('All');
+  const [dateRange, setDateRange] = useState<{start: string, end: string}>({ start: '', end: '' });
+
   const [stats, setStats] = useState({
       daily: 0,
       weekly: 0,
@@ -156,6 +162,12 @@ export const AdminDashboard: React.FC = () => {
       alert("Message copied to clipboard!");
   };
 
+  const clearFilters = () => {
+      setSearchTerm('');
+      setStatusFilter('All');
+      setDateRange({ start: '', end: '' });
+  };
+
   const StatusBadge = ({ status }: { status: OrderStatus }) => {
     const colors = {
         [OrderStatus.PLACED]: 'bg-blue-500/20 text-blue-400',
@@ -166,6 +178,35 @@ export const AdminDashboard: React.FC = () => {
     };
     return <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${colors[status]}`}>{status}</span>;
   };
+
+  // Filter Orders Logic
+  const filteredOrders = orders.filter(order => {
+    // 1. Text Search
+    const matchesSearch = 
+        order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.customerPhone.includes(searchTerm);
+
+    // 2. Status Filter
+    const matchesStatus = statusFilter === 'All' || order.status === statusFilter;
+
+    // 3. Date Range Filter
+    let matchesDate = true;
+    if (dateRange.start) {
+        // Create start date at 00:00:00 local time
+        const startDate = new Date(dateRange.start);
+        startDate.setHours(0,0,0,0);
+        matchesDate = matchesDate && order.timestamp >= startDate.getTime();
+    }
+    if (dateRange.end) {
+        // Create end date at 23:59:59 local time
+        const endDate = new Date(dateRange.end);
+        endDate.setHours(23,59,59,999);
+        matchesDate = matchesDate && order.timestamp <= endDate.getTime();
+    }
+
+    return matchesSearch && matchesStatus && matchesDate;
+  });
 
   return (
     <div className="space-y-8 pb-20 relative">
@@ -250,11 +291,75 @@ export const AdminDashboard: React.FC = () => {
           </div>
       </div>
 
-      <h2 className="text-xl font-bold text-white mt-8">Recent Orders</h2>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-8">
+        <h2 className="text-xl font-bold text-white">Orders</h2>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="bg-dark-900 border border-gray-700 p-4 rounded-xl flex flex-col md:flex-row gap-4 items-center">
+            {/* Search */}
+            <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+                <input 
+                    type="text" 
+                    placeholder="Search ID, Name..." 
+                    className="w-full bg-dark-800 border border-gray-600 rounded-lg pl-9 pr-4 py-2 text-white text-sm focus:border-cannabis-500 focus:outline-none placeholder:text-gray-600"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+
+            <div className="h-6 w-px bg-gray-700 hidden md:block"></div>
+
+            {/* Status Filter */}
+            <div className="w-full md:w-48">
+                 <select 
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'All')}
+                    className="w-full bg-dark-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:border-cannabis-500 outline-none"
+                 >
+                     <option value="All">All Statuses</option>
+                     {Object.values(OrderStatus).map(status => (
+                         <option key={status} value={status}>{status}</option>
+                     ))}
+                 </select>
+            </div>
+
+            <div className="h-6 w-px bg-gray-700 hidden md:block"></div>
+
+            {/* Date Range */}
+            <div className="flex gap-2 w-full md:w-auto items-center">
+                <input 
+                    type="date" 
+                    className="bg-dark-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-cannabis-500"
+                    value={dateRange.start}
+                    onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
+                    placeholder="Start"
+                />
+                <span className="text-gray-500">-</span>
+                <input 
+                    type="date" 
+                    className="bg-dark-800 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-cannabis-500"
+                    value={dateRange.end}
+                    onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
+                    placeholder="End"
+                />
+            </div>
+
+            {/* Clear Button */}
+            {(searchTerm || statusFilter !== 'All' || dateRange.start || dateRange.end) && (
+                <button 
+                    onClick={clearFilters}
+                    className="text-gray-400 hover:text-white text-sm flex items-center gap-1 px-3 py-2 rounded hover:bg-dark-800 transition-colors ml-auto"
+                >
+                    <RotateCcw className="w-3 h-3" /> Clear
+                </button>
+            )}
+      </div>
 
       {/* Kanban-ish List for Mobile/Desktop */}
       <div className="space-y-4">
-        {orders.map(order => (
+        {filteredOrders.map(order => (
             <div key={order.id} className="bg-dark-800 border border-gray-700 rounded-xl p-4 shadow-sm hover:border-gray-600 transition-colors relative overflow-hidden">
                 {order.appliedReferralCode && (
                     <div className="absolute top-0 right-0 bg-green-500/20 text-green-400 px-3 py-1 text-[10px] font-bold uppercase rounded-bl-xl border-l border-b border-green-500/30 flex items-center gap-1">
@@ -273,6 +378,7 @@ export const AdminDashboard: React.FC = () => {
                     <div className="text-right">
                         <div className="font-bold text-white">${order.total.toFixed(2)}</div>
                         <div className="text-xs text-gray-500">{new Date(order.timestamp).toLocaleTimeString()}</div>
+                        <div className="text-[10px] text-gray-600">{new Date(order.timestamp).toLocaleDateString()}</div>
                     </div>
                 </div>
 
@@ -327,10 +433,11 @@ export const AdminDashboard: React.FC = () => {
             </div>
         ))}
 
-        {orders.length === 0 && (
-            <div className="text-center py-20 text-gray-500">
-                <Clock className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                <p>No active orders.</p>
+        {filteredOrders.length === 0 && (
+            <div className="text-center py-20 text-gray-500 bg-dark-800 rounded-xl border border-gray-700 border-dashed">
+                <Filter className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                <p>No orders match your filters.</p>
+                <button onClick={clearFilters} className="text-cannabis-400 text-sm mt-2 hover:underline">Clear all filters</button>
             </div>
         )}
       </div>

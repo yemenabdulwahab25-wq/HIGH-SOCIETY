@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine, Star, Cloud, Leaf } from 'lucide-react';
+import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine, Star, Cloud, Leaf, Search } from 'lucide-react';
 import { storage } from '../../services/storage';
 import { Category, StrainType, Product, ProductWeight, ProductType } from '../../types';
 import { generateDescription, analyzeImage, removeBackground } from '../../services/gemini';
@@ -35,6 +35,7 @@ export const AdminInventory: React.FC = () => {
   const [analyzingImage, setAnalyzingImage] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Custom Category State
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -227,6 +228,13 @@ export const AdminInventory: React.FC = () => {
       setForm(p);
   };
 
+  const filteredProducts = products.filter(p => 
+      p.productType === activeTab && (
+          p.flavor.toLowerCase().includes(searchTerm.toLowerCase()) || 
+          p.brand.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+  );
+
   return (
     <div className="space-y-8 pb-20">
       <div className="flex justify-between items-center">
@@ -399,27 +407,16 @@ export const AdminInventory: React.FC = () => {
                     </div>
                   </>
               ) : (
-                  <>
-                    <div>
-                         <label className="block text-sm text-gray-400 mb-1">Puff Count</label>
-                         <input 
-                            type="number" 
-                            value={form.puffCount}
-                            onChange={e => handleChange('puffCount', Number(e.target.value))}
-                            className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
-                            placeholder="e.g. 5000"
-                        />
-                    </div>
-                    <div>
-                         <label className="block text-sm text-gray-400 mb-1">Nicotine % (Optional)</label>
-                         <input 
-                            type="number" 
-                            disabled
-                            placeholder="5% (Standard)"
-                            className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-gray-500 cursor-not-allowed"
-                        />
-                    </div>
-                  </>
+                  <div className="col-span-2">
+                       <label className="block text-sm text-gray-400 mb-1">Puff Count</label>
+                       <input 
+                          type="number" 
+                          value={form.puffCount}
+                          onChange={e => handleChange('puffCount', Number(e.target.value))}
+                          className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
+                          placeholder="e.g. 5000"
+                      />
+                  </div>
               )}
           </div>
 
@@ -515,8 +512,21 @@ export const AdminInventory: React.FC = () => {
         {/* RIGHT COLUMN: LIST VIEW (Bulk) */}
         <div className="bg-dark-800 p-6 rounded-2xl border border-gray-700 h-fit">
             <h2 className="text-xl font-bold text-white mb-4">Current {activeTab} Inventory</h2>
+            
+            {/* Search Filter */}
+            <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-4 h-4" />
+                <input 
+                    type="text" 
+                    placeholder="Search brand or flavor..." 
+                    className="w-full bg-dark-900 border border-gray-700 rounded-lg pl-9 pr-4 py-2 text-white text-sm focus:border-cannabis-500 focus:outline-none placeholder:text-gray-600"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+
             <div className="space-y-3 max-h-[800px] overflow-y-auto pr-2">
-                {products.filter(p => p.productType === activeTab).map(p => (
+                {filteredProducts.map(p => (
                     <div key={p.id} className="flex items-center gap-3 bg-dark-900 p-3 rounded-lg border border-gray-800 hover:border-gray-600 cursor-pointer" onClick={() => handleEdit(p)}>
                         <img src={p.imageUrl} className="w-10 h-10 rounded object-cover bg-white" />
                         <div className="flex-1 min-w-0">
@@ -541,7 +551,7 @@ export const AdminInventory: React.FC = () => {
                         </div>
                     </div>
                 ))}
-                {products.filter(p => p.productType === activeTab).length === 0 && (
+                {filteredProducts.length === 0 && (
                     <div className="text-center py-12 text-gray-500">
                         <p>No {activeTab} products found.</p>
                         <p className="text-xs">Add your first one to the left.</p>
