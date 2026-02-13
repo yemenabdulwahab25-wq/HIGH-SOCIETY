@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Minus, Plus, Share2, ShieldCheck, Zap, Cloud, Sparkles, Star, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Share2, ShieldCheck, Zap, Cloud, Sparkles, Star, MessageSquare, AlertTriangle } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Product, Review } from '../types';
 import { Button } from '../components/ui/Button';
@@ -10,6 +10,13 @@ import { getCategoryColor } from './Storefront';
 interface ProductDetailsProps {
   addToCart: (product: Product, weightIdx: number, quantity: number) => void;
 }
+
+// Basic Blacklist Filter
+const PROFANITY_BLOCKLIST = [
+    'shit', 'fuck', 'bitch', 'ass', 'bastard', 'damn', 'hell', 'crap', 
+    'piss', 'dick', 'cock', 'pussy', 'slut', 'whore', 'nigger', 'faggot', 
+    'cunt', 'retard', 'spic', 'kike', 'chink'
+];
 
 export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => {
   const { id } = useParams();
@@ -23,6 +30,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [newReview, setNewReview] = useState<{name: string, rating: number, comment: string}>({ name: '', rating: 5, comment: '' });
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   useEffect(() => {
     const products = storage.getProducts();
@@ -131,9 +139,28 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
     };
   }, [product, reviews]);
 
+  const validateContent = (text: string): boolean => {
+      const lower = text.toLowerCase();
+      // Use word boundaries to avoid false positives (e.g. "classic" containing "ass")
+      return PROFANITY_BLOCKLIST.some(word => {
+          const regex = new RegExp(`\\b${word}\\b`, 'i');
+          return regex.test(lower);
+      });
+  };
+
   const handleSubmitReview = (e: React.FormEvent) => {
       e.preventDefault();
+      setReviewError('');
+      
       if (!product || !newReview.name || !newReview.comment) return;
+
+      // Check profanity
+      const combinedText = `${newReview.name} ${newReview.comment}`;
+      if (validateContent(combinedText)) {
+          setReviewError("We keep things classy here. Please remove offensive language.");
+          return;
+      }
+
       setIsSubmittingReview(true);
 
       const review: Review = {
@@ -376,6 +403,13 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
               {/* Add Review Form */}
               <div className="bg-dark-900 rounded-2xl p-6 border border-gray-800 h-fit sticky top-24">
                   <h4 className="text-lg font-bold text-white mb-4">Leave a Review</h4>
+                  
+                  {reviewError && (
+                      <div className="mb-4 bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-lg text-sm flex items-center gap-2 animate-pulse">
+                          <AlertTriangle className="w-4 h-4" /> {reviewError}
+                      </div>
+                  )}
+
                   <form onSubmit={handleSubmitReview} className="space-y-4">
                       <div>
                           <label className="text-xs text-gray-500 block mb-1">Your Name</label>
