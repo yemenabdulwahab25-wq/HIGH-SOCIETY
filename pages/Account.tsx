@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, Clock, RotateCcw, User, Phone, LogOut, Ticket, Copy } from 'lucide-react';
+import { Package, Clock, RotateCcw, User, Phone, LogOut, Ticket, Copy, AlertCircle } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Order, OrderStatus, Product } from '../types';
 import { Button } from '../components/ui/Button';
@@ -55,6 +55,7 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
       const currentProducts = storage.getProducts();
       let addedCount = 0;
       let partialStockCount = 0;
+      let missingCount = 0;
 
       order.items.forEach(item => {
           // Find if product still exists in catalog
@@ -78,14 +79,20 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
 
                       addToCart(currentProduct, weightIndex, qtyToAdd);
                       addedCount++;
+                  } else {
+                      missingCount++;
                   }
+              } else {
+                  missingCount++;
               }
+          } else {
+              missingCount++;
           }
       });
 
       if (addedCount > 0) {
-          if (partialStockCount > 0) {
-              alert("Some items had limited stock, so we adjusted the quantities.");
+          if (partialStockCount > 0 || missingCount > 0) {
+              alert(`Added available items to cart. ${missingCount} items were unavailable and ${partialStockCount} had limited stock.`);
           }
           navigate('/cart');
       } else {
@@ -149,7 +156,7 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
           )}
 
           {orders.map(order => (
-              <div key={order.id} className="bg-dark-800 border border-gray-700 rounded-xl p-5 hover:border-gray-600 transition-colors relative overflow-hidden">
+              <div key={order.id} className="bg-dark-800 border border-gray-700 rounded-xl p-5 hover:border-gray-600 transition-colors relative overflow-hidden group">
                   
                   {/* Generated Code Badge */}
                   {order.generatedReferralCode && (
@@ -192,9 +199,9 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
 
                   <div className="space-y-2 mb-5">
                       {order.items.map((item, idx) => (
-                          <div key={idx} className="flex items-center gap-3 bg-dark-900/50 p-2 rounded-lg">
+                          <div key={idx} className="flex items-center gap-3 bg-dark-900/50 p-2 rounded-lg border border-transparent group-hover:border-gray-800 transition-colors">
                               <div className="w-8 h-8 rounded bg-white flex-shrink-0 overflow-hidden">
-                                  <img src={item.imageUrl} className="w-full h-full object-cover" />
+                                  <img src={item.imageUrl} className="w-full h-full object-cover" alt={item.flavor} />
                               </div>
                               <div className="flex-1 text-sm text-gray-300">
                                   <span className="font-bold text-white">{item.quantity}x</span> {item.flavor} 
@@ -207,7 +214,7 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
                   <Button 
                     variant="secondary" 
                     fullWidth 
-                    className="flex items-center justify-center gap-2 border-cannabis-500/30 hover:bg-cannabis-500/10 text-cannabis-400 hover:text-cannabis-300 transition-all active:scale-95"
+                    className="flex items-center justify-center gap-2 border-cannabis-500/30 hover:bg-cannabis-500/10 text-cannabis-400 hover:text-cannabis-300 transition-all active:scale-[0.98]"
                     onClick={() => handleBuyAgain(order)}
                   >
                       <RotateCcw className="w-4 h-4" /> Buy Again

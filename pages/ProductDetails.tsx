@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Minus, Plus, Share2, ShieldCheck, Zap, Cloud } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft, Minus, Plus, Share2, ShieldCheck, Zap, Cloud, Sparkles, Star } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Product } from '../types';
 import { Button } from '../components/ui/Button';
@@ -17,13 +17,16 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedWeightIdx, setSelectedWeightIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     const products = storage.getProducts();
     const found = products.find(p => p.id === id);
     if (found) {
         setProduct(found);
-        
+        setSelectedWeightIdx(0); // Reset selection on product change
+        setQuantity(1);
+
         // SEO: Update Browser Title
         if (found.seo?.title) {
             document.title = found.seo.title;
@@ -31,10 +34,6 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
             document.title = `${found.flavor} by ${found.brand} | Billionaire Level`;
         }
 
-        // SEO: Update Meta Description
-        // Note: In a real SSR app, this would be handled server-side. 
-        // For client-side, we update it dynamically for shared links that might scrape JS (like Google sometimes does)
-        // or just for user experience in tab previews.
         let metaDesc = document.querySelector('meta[name="description"]');
         if (!metaDesc) {
             metaDesc = document.createElement('meta');
@@ -42,10 +41,36 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
             document.head.appendChild(metaDesc);
         }
         metaDesc.setAttribute('content', found.seo?.description || found.description);
+
+        // RECOMMENDATION ENGINE
+        // 1. Filter: Same Product Type, Different ID, Published
+        const others = products.filter(p => p.id !== found.id && p.isPublished && p.productType === found.productType);
+        
+        // 2. Score
+        const scored = others.map(p => {
+            let score = 0;
+            // Category Match (High Priority)
+            if (p.category === found.category) score += 4;
+            // Brand Match
+            if (p.brand === found.brand) score += 3;
+            // THC Similarity (for Cannabis)
+            if (found.productType === 'Cannabis' && found.thcPercentage && p.thcPercentage) {
+                if (Math.abs(found.thcPercentage - p.thcPercentage) <= 5) score += 2;
+            }
+            // Strain Match
+            if (found.strain && p.strain === found.strain) score += 1;
+            
+            return { product: p, score };
+        });
+
+        // 3. Sort & Slice
+        scored.sort((a, b) => b.score - a.score);
+        setRelatedProducts(scored.slice(0, 3).map(s => s.product));
     }
 
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
     return () => {
-        // Cleanup: Reset title when leaving page
         document.title = "Billionaire Level";
     };
   }, [id]);
@@ -213,6 +238,57 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
           </div>
         </div>
       </div>
+
+      {/* RELATED PRODUCTS */}
+      {relatedProducts.length > 0 && (
+          <div className="mt-16 pt-12 border-t border-gray-800/50">
+               <div className="flex items-center justify-between mb-8">
+                   <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+                       <Sparkles className="w-5 h-5 text-gold-400" /> You May Also Like
+                   </h3>
+                   <div className="hidden md:block h-px flex-1 bg-gray-800 ml-6"></div>
+               </div>
+               
+               <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                   {relatedProducts.map(p => (
+                       <Link 
+                           to={`/product/${p.id}`} 
+                           key={p.id} 
+                           className="group bg-dark-900 rounded-2xl p-4 border border-gray-800 hover:border-gold-500/30 transition-all hover:-translate-y-1 hover:shadow-xl"
+                        >
+                           <div className="aspect-square bg-dark-950 rounded-xl mb-4 p-4 relative overflow-hidden flex items-center justify-center">
+                               <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors z-10"></div>
+                               <img src={p.imageUrl} alt={p.flavor} className="w-full h-full object-contain mix-blend-normal group-hover:scale-110 transition-transform duration-500" />
+                               
+                               {/* Badge overlay */}
+                               <div className="absolute top-2 left-2 z-20">
+                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getCategoryColor(p.category)}`}>
+                                       {p.category}
+                                   </span>
+                               </div>
+                           </div>
+
+                           <div>
+                               <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1 flex justify-between">
+                                   <span>{p.brand}</span>
+                                   {p.productType === 'Cannabis' && p.thcPercentage && (
+                                       <span className="text-cannabis-400">{p.thcPercentage}% THC</span>
+                                   )}
+                               </div>
+                               <h4 className="font-bold text-white text-base mb-2 truncate group-hover:text-gold-400 transition-colors">{p.flavor}</h4>
+                               
+                               <div className="flex items-center justify-between border-t border-gray-800 pt-3 mt-3">
+                                   <div className="text-sm font-bold text-gray-200">${p.weights[0].price}</div>
+                                   <div className="w-6 h-6 rounded-full bg-dark-800 flex items-center justify-center group-hover:bg-cannabis-500 group-hover:text-white transition-colors">
+                                       <Plus className="w-3 h-3" />
+                                   </div>
+                               </div>
+                           </div>
+                       </Link>
+                   ))}
+               </div>
+          </div>
+      )}
     </div>
   );
 };
