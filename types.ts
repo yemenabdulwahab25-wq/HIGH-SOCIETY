@@ -77,6 +77,7 @@ export interface Order {
   id: string;
   customerName: string;
   customerPhone: string;
+  customerEmail?: string; // New: Capture Email for Marketing
   items: CartItem[];
   subtotal: number;
   tax: number;

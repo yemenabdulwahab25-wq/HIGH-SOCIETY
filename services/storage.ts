@@ -258,5 +258,14 @@ export const storage = {
     allReviews.push(review);
     localStorage.setItem(KEYS.REVIEWS, JSON.stringify(allReviews));
     notifyUpdate();
+  },
+  // Customer Data
+  getCustomerEmails: (): string[] => {
+      const orders = storage.getOrders();
+      const emails = new Set<string>();
+      orders.forEach(o => {
+          if (o.customerEmail) emails.add(o.customerEmail);
+      });
+      return Array.from(emails);
   }
 };

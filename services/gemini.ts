@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Chat } from "@google/genai";
+import { GoogleGenAI, Chat, Type } from "@google/genai";
 import { Product, ProductType, ProductSEO } from "../types";
 
 const apiKey = process.env.API_KEY || ''; // Ideally this is set in env
@@ -101,6 +101,64 @@ export const generateAdCopy = async (product: Product, platform: 'Google' | 'Fac
         return "Ad generation failed.";
     }
 };
+
+export const generateMarketingEmail = async (type: 'Product_Drop' | 'Special_Event', data: any): Promise<{subject: string, body: string}> => {
+    if (!apiKey) return { subject: "Update from Billionaire Level", body: "Check out our latest updates." };
+    try {
+        const model = 'gemini-3-flash-preview';
+        let prompt = '';
+        
+        if (type === 'Product_Drop') {
+            prompt = `
+                Write a premium, high-energy email newsletter announcing a new product drop.
+                Product: ${data.brand} ${data.flavor} (${data.category})
+                Description: ${data.description}
+                
+                Requirements:
+                - Tone: Exclusive, Urgent, Luxury.
+                - Subject Line: Short, emojis allowed, high click-through rate.
+                - Body: Engaging, 2-3 short paragraphs, Call to Action at end.
+                
+                Return JSON only: { "subject": string, "body": string }
+            `;
+        } else {
+            prompt = `
+                Write a fun, celebratory email newsletter inviting customers to a special event.
+                Event: ${data.title}
+                Message: ${data.message}
+                Dates: ${data.startDate} to ${data.endDate}
+                
+                Requirements:
+                - Tone: Festive, Community-focused, Exciting.
+                - Subject Line: Short, party emojis allowed.
+                - Body: Engaging, clear details, invite them to store.
+                
+                Return JSON only: { "subject": string, "body": string }
+            `;
+        }
+
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: { 
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        subject: { type: Type.STRING },
+                        body: { type: Type.STRING }
+                    },
+                    required: ["subject", "body"]
+                }
+            }
+        });
+        
+        return response.text ? JSON.parse(response.text) : { subject: "Update", body: "New updates available." };
+    } catch (e) {
+        console.error("Email Gen Failed", e);
+        return { subject: "New Update", body: "Check our store for new updates!" };
+    }
+}
 
 export const analyzeImage = async (base64Image: string, productType: ProductType = 'Cannabis'): Promise<Partial<Product>> => {
     if (!apiKey) return {};

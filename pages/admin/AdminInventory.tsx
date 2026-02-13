@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine, Star, Cloud, Leaf, Search, ArrowRightLeft } from 'lucide-react';
+import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine, Star, Cloud, Leaf, Search, ArrowRightLeft, Mail, Send } from 'lucide-react';
 import { storage } from '../../services/storage';
 import { Category, StrainType, Product, ProductWeight, ProductType } from '../../types';
-import { generateDescription, analyzeImage, removeBackground } from '../../services/gemini';
+import { generateDescription, analyzeImage, removeBackground, generateMarketingEmail } from '../../services/gemini';
 import { Button } from '../../components/ui/Button';
 
 // Default Form State
@@ -52,6 +52,10 @@ export const AdminInventory: React.FC = () => {
   const [isAddingBrand, setIsAddingBrand] = useState(false);
   const [newBrandName, setNewBrandName] = useState('');
   
+  // Marketing / Notifications
+  const [notifyCustomers, setNotifyCustomers] = useState(false);
+  const [emailPreview, setEmailPreview] = useState<{isOpen: boolean, subject: string, body: string} | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const brandLogoInputRef = useRef<HTMLInputElement>(null);
 
@@ -248,10 +252,11 @@ export const AdminInventory: React.FC = () => {
   const handleClear = () => {
     if (window.confirm("Are you sure you want to clear the form?")) {
       setForm({ ...INITIAL_FORM, id: '', productType: activeTab });
+      setNotifyCustomers(false);
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.brand || !form.flavor) {
         alert("Brand and Flavor are required.");
         return;
@@ -264,10 +269,38 @@ export const AdminInventory: React.FC = () => {
         isPublished: true,
         // Product Type is already in form state
     };
+    
     storage.saveProduct(newProduct);
     localStorage.removeItem('hs_product_draft');
-    setForm({ ...INITIAL_FORM, id: '', productType: activeTab }); 
-    alert("Product Saved Successfully!");
+
+    // Trigger Email Flow
+    if (notifyCustomers) {
+        const copy = await generateMarketingEmail('Product_Drop', newProduct);
+        setEmailPreview({ isOpen: true, subject: copy.subject, body: copy.body });
+    } else {
+        // Just reset if no email needed
+        setForm({ ...INITIAL_FORM, id: '', productType: activeTab }); 
+        alert("Product Saved Successfully!");
+    }
+  };
+
+  const handleSendEmailBlast = () => {
+      if (!emailPreview) return;
+      
+      const emails = storage.getCustomerEmails();
+      if (emails.length === 0) {
+          alert("No customer emails found in order history to send to.");
+          setEmailPreview(null);
+          setForm({ ...INITIAL_FORM, id: '', productType: activeTab });
+          setNotifyCustomers(false);
+          return;
+      }
+
+      // Simulate sending
+      alert(`Email Blast Sent to ${emails.length} customers!\n\nSubject: ${emailPreview.subject}`);
+      setEmailPreview(null);
+      setForm({ ...INITIAL_FORM, id: '', productType: activeTab });
+      setNotifyCustomers(false);
   };
 
   const handleEdit = (p: Product) => {
@@ -286,7 +319,7 @@ export const AdminInventory: React.FC = () => {
   const isVapeForm = form.productType === 'Vape';
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-8 pb-20 relative">
       <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-white">Inventory Master</h1>
           
@@ -616,12 +649,28 @@ export const AdminInventory: React.FC = () => {
              />
           </div>
 
+          {/* NOTIFY CUSTOMERS TOGGLE */}
+          <div className="bg-gradient-to-r from-cannabis-500/10 to-transparent p-4 rounded-xl border border-cannabis-500/20 flex items-center justify-between">
+              <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-cannabis-400" /> Notify Customers
+                  </h3>
+                  <p className="text-xs text-gray-400">Send an AI-crafted email blast about this product.</p>
+              </div>
+              <button 
+                onClick={() => setNotifyCustomers(!notifyCustomers)}
+                className={`w-12 h-6 rounded-full transition-colors relative ${notifyCustomers ? 'bg-cannabis-500' : 'bg-gray-700'}`}
+              >
+                  <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${notifyCustomers ? 'translate-x-6' : 'translate-x-0'}`} />
+              </button>
+          </div>
+
           <div className="flex gap-3 mt-4">
             <Button variant="secondary" onClick={handleClear} className="w-1/3">
               <RotateCcw className="w-4 h-4 mr-2" /> Clear
             </Button>
             <Button fullWidth size="lg" onClick={handleSave} className={`flex-1 ${isVapeForm ? 'bg-blue-600 hover:bg-blue-500' : ''}`}>
-                <Save className="w-5 h-5 mr-2" /> Save {form.productType}
+                <Save className="w-5 h-5 mr-2" /> Save & {notifyCustomers ? 'Notify' : 'Finish'}
             </Button>
           </div>
 
@@ -682,6 +731,54 @@ export const AdminInventory: React.FC = () => {
             </div>
         </div>
       </div>
+
+      {/* EMAIL PREVIEW MODAL */}
+      {emailPreview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <div className="bg-dark-800 w-full max-w-lg rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+                  <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-dark-900/50">
+                      <h3 className="font-bold text-white flex items-center gap-2">
+                          <Mail className="w-5 h-5 text-cannabis-500" /> Review Email Blast
+                      </h3>
+                      <button onClick={() => { setEmailPreview(null); setNotifyCustomers(false); setForm({ ...INITIAL_FORM, id: '', productType: activeTab }); }} className="text-gray-500 hover:text-white">
+                          <X className="w-5 h-5" />
+                      </button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                      <p className="text-sm text-gray-400">
+                          Product Saved! Review the automated email below before sending to {storage.getCustomerEmails().length} subscribers.
+                      </p>
+                      
+                      <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase">Subject</label>
+                          <div className="bg-dark-900 border border-gray-700 rounded-lg p-3 text-white text-sm font-medium">
+                              {emailPreview.subject}
+                          </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase">Message Body</label>
+                          <div className="bg-dark-900 border border-gray-700 rounded-lg p-3 text-gray-300 text-sm whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto">
+                              {emailPreview.body}
+                          </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                          <Button 
+                            variant="secondary" 
+                            fullWidth 
+                            onClick={() => { setEmailPreview(null); setNotifyCustomers(false); setForm({ ...INITIAL_FORM, id: '', productType: activeTab }); }}
+                          >
+                              Skip
+                          </Button>
+                          <Button fullWidth onClick={handleSendEmailBlast}>
+                              <Send className="w-4 h-4 mr-2" /> Send to All
+                          </Button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

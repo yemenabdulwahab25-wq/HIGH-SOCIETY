@@ -174,6 +174,7 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
         id: Math.random().toString(36).substr(2, 9).toUpperCase(),
         customerName: customerInfo.name,
         customerPhone: customerInfo.phone,
+        customerEmail: customerInfo.email, // Save email
         items: cart,
         subtotal,
         discountAmount,
@@ -333,7 +334,7 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
                   />
                   <input 
                     type="email" 
-                    placeholder="Email (Optional)" 
+                    placeholder="Email (Recommended for updates)" 
                     className="w-full bg-dark-800 border-gray-700 rounded-lg p-3 text-white focus:border-cannabis-500 outline-none"
                     value={customerInfo.email}
                     onChange={e => setCustomerInfo({...customerInfo, email: e.target.value})}
