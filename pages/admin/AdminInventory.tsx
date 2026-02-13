@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine, Star, Cloud, Leaf, Search, ArrowRightLeft, Mail, Send } from 'lucide-react';
+import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine, Star, Cloud, Leaf, Search, ArrowRightLeft, Mail, Send, PackagePlus, ArrowRight } from 'lucide-react';
 import { storage } from '../../services/storage';
 import { Category, StrainType, Product, ProductWeight, ProductType } from '../../types';
 import { generateDescription, analyzeImage, removeBackground, enhanceImage, generateMarketingEmail } from '../../services/gemini';
@@ -56,6 +56,10 @@ export const AdminInventory: React.FC = () => {
   // Marketing / Notifications
   const [notifyCustomers, setNotifyCustomers] = useState(false);
   const [emailPreview, setEmailPreview] = useState<{isOpen: boolean, subject: string, body: string} | null>(null);
+
+  // Quick Restock Modal State
+  const [restockProduct, setRestockProduct] = useState<Product | null>(null);
+  const [restockValues, setRestockValues] = useState<Record<string, number>>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const brandLogoInputRef = useRef<HTMLInputElement>(null);
@@ -322,6 +326,43 @@ export const AdminInventory: React.FC = () => {
   const handleEdit = (p: Product) => {
       setActiveTab(p.productType);
       setForm(p);
+  };
+  
+  // RESTOCK HANDLERS
+  const openRestock = (e: React.MouseEvent, p: Product) => {
+      e.stopPropagation(); // Prevent opening edit mode
+      setRestockProduct(p);
+      setRestockValues({});
+  };
+
+  const handleRestockChange = (label: string, val: string) => {
+      const qty = parseInt(val) || 0;
+      setRestockValues(prev => ({ ...prev, [label]: qty }));
+  };
+
+  const submitRestock = () => {
+      if (!restockProduct) return;
+      
+      // Calculate new stocks
+      let totalAdded = 0;
+      const updatedWeights = restockProduct.weights.map(w => {
+          const addAmount = restockValues[w.label] || 0;
+          totalAdded += addAmount;
+          return { ...w, stock: w.stock + addAmount };
+      });
+      
+      const newTotalStock = updatedWeights.reduce((acc, w) => acc + w.stock, 0);
+
+      const updatedProduct: Product = {
+          ...restockProduct,
+          weights: updatedWeights,
+          stock: newTotalStock
+      };
+      
+      storage.saveProduct(updatedProduct);
+      setRestockProduct(null);
+      setRestockValues({});
+      // Optional: alert(`Stock updated! Added ${totalAdded} units.`);
   };
 
   // Filter list based on tabs, but DO NOT affect the form rendering
@@ -731,18 +772,29 @@ export const AdminInventory: React.FC = () => {
                                 <span>{p.productType === 'Vape' ? `${p.puffCount} puffs` : p.category}</span>
                             </div>
                         </div>
-                        <div className="text-right">
-                             <div className="font-bold text-white">${p.weights[0].price}</div>
-                             <div className={`text-xs font-bold px-2 py-0.5 rounded border mt-1 inline-flex items-center gap-1
-                                ${p.stock === 0 
-                                    ? 'bg-red-900/20 text-red-400 border-red-500/30' 
-                                    : p.stock <= lowStockThreshold 
-                                        ? 'bg-yellow-900/20 text-yellow-400 border-yellow-500/30' 
-                                        : 'bg-green-900/20 text-green-400 border-green-500/30'
-                                }`}>
-                                {p.stock === 0 ? 'Out of Stock' : p.stock <= lowStockThreshold ? 'Low Stock' : 'In Stock'}
-                                <span className="opacity-70 ml-1">({p.stock})</span>
+                        <div className="text-right flex items-center gap-3">
+                             <div>
+                                 <div className="font-bold text-white">${p.weights[0].price}</div>
+                                 <div className={`text-xs font-bold px-2 py-0.5 rounded border mt-1 inline-flex items-center gap-1
+                                    ${p.stock === 0 
+                                        ? 'bg-red-900/20 text-red-400 border-red-500/30' 
+                                        : p.stock <= lowStockThreshold 
+                                            ? 'bg-yellow-900/20 text-yellow-400 border-yellow-500/30' 
+                                            : 'bg-green-900/20 text-green-400 border-green-500/30'
+                                    }`}>
+                                    {p.stock === 0 ? 'Out of Stock' : p.stock <= lowStockThreshold ? 'Low Stock' : 'In Stock'}
+                                    <span className="opacity-70 ml-1">({p.stock})</span>
+                                 </div>
                              </div>
+                             
+                             {/* QUICK RESTOCK BUTTON */}
+                             <button 
+                                onClick={(e) => openRestock(e, p)}
+                                className="p-2 bg-dark-800 hover:bg-cannabis-600 text-gray-400 hover:text-white rounded-lg border border-gray-700 hover:border-cannabis-500 transition-all"
+                                title="Quick Restock"
+                             >
+                                 <PackagePlus className="w-5 h-5" />
+                             </button>
                         </div>
                     </div>
                 ))}
@@ -755,6 +807,66 @@ export const AdminInventory: React.FC = () => {
             </div>
         </div>
       </div>
+
+      {/* QUICK RESTOCK MODAL */}
+      {restockProduct && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+              <div className="bg-dark-800 w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+                  <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-dark-900/50">
+                      <h3 className="font-bold text-white flex items-center gap-2">
+                          <PackagePlus className="w-5 h-5 text-cannabis-500" /> Restock {restockProduct.flavor}
+                      </h3>
+                      <button onClick={() => setRestockProduct(null)} className="text-gray-500 hover:text-white">
+                          <X className="w-5 h-5" />
+                      </button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                      <p className="text-sm text-gray-400">
+                          Add the quantity received to the existing stock. The system will calculate the new total automatically.
+                      </p>
+
+                      <div className="space-y-3">
+                          {restockProduct.weights.map((w, idx) => {
+                              const qtyToAdd = restockValues[w.label] || 0;
+                              const newTotal = w.stock + qtyToAdd;
+                              
+                              return (
+                                  <div key={idx} className="bg-dark-900 p-3 rounded-xl border border-gray-700 flex items-center justify-between">
+                                      <div>
+                                          <div className="text-white font-bold">{w.label}</div>
+                                          <div className="text-xs text-gray-500">Current: {w.stock} units</div>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                          <div className="relative">
+                                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">+</span>
+                                              <input 
+                                                type="number"
+                                                className="w-20 bg-dark-800 border border-gray-600 rounded-lg pl-6 pr-2 py-2 text-white text-sm focus:border-cannabis-500 outline-none"
+                                                placeholder="0"
+                                                min="0"
+                                                onChange={(e) => handleRestockChange(w.label, e.target.value)}
+                                              />
+                                          </div>
+                                          <div className="w-16 text-right">
+                                              <div className="text-[10px] text-gray-500 uppercase">New Total</div>
+                                              <div className="text-green-400 font-bold">{newTotal}</div>
+                                          </div>
+                                      </div>
+                                  </div>
+                              );
+                          })}
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                          <Button variant="secondary" fullWidth onClick={() => setRestockProduct(null)}>Cancel</Button>
+                          <Button fullWidth onClick={submitRestock}>
+                              <Check className="w-4 h-4 mr-2" /> Confirm Update
+                          </Button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* EMAIL PREVIEW MODAL */}
       {emailPreview && (
