@@ -118,6 +118,7 @@ export const Layout = ({ children, isAdmin, cartCount = 0, settings }: LayoutPro
                <Link to="/admin/dashboard" className={`text-sm font-medium ${location.pathname.includes('dashboard') ? 'text-cannabis-500' : 'text-gray-400'}`}>Dashboard</Link>
                <Link to="/admin/customers" className={`text-sm font-medium ${location.pathname.includes('customers') ? 'text-cannabis-500' : 'text-gray-400'}`}>Clients</Link>
                <Link to="/admin/inventory" className={`text-sm font-medium ${location.pathname.includes('inventory') ? 'text-cannabis-500' : 'text-gray-400'}`}>Add Product</Link>
+               <Link to="/admin/marketing" className={`text-sm font-medium ${location.pathname.includes('marketing') ? 'text-cannabis-500' : 'text-gray-400'}`}>Marketing</Link>
                <Link to="/admin/settings" className={`text-sm font-medium ${location.pathname.includes('settings') ? 'text-cannabis-500' : 'text-gray-400'}`}>Settings</Link>
              </nav>
              <button onClick={() => { localStorage.removeItem('hs_admin_auth'); navigate('/admin'); }} className="text-gray-400 hover:text-white">
@@ -151,9 +152,9 @@ export const Layout = ({ children, isAdmin, cartCount = 0, settings }: LayoutPro
              <div className={`w-1 h-1 rounded-full ${location.pathname.includes('inventory') ? 'bg-cannabis-500' : 'bg-transparent'}`} />
              <span className={`text-xs ${location.pathname.includes('inventory') ? 'text-white' : 'text-gray-500'}`}>Add</span>
            </Link>
-           <Link to="/admin/settings" className="flex flex-col items-center gap-1">
-             <div className={`w-1 h-1 rounded-full ${location.pathname.includes('settings') ? 'bg-cannabis-500' : 'bg-transparent'}`} />
-             <span className={`text-xs ${location.pathname.includes('settings') ? 'text-white' : 'text-gray-500'}`}>Settings</span>
+           <Link to="/admin/marketing" className="flex flex-col items-center gap-1">
+             <div className={`w-1 h-1 rounded-full ${location.pathname.includes('marketing') ? 'bg-cannabis-500' : 'bg-transparent'}`} />
+             <span className={`text-xs ${location.pathname.includes('marketing') ? 'text-white' : 'text-gray-500'}`}>SEO</span>
            </Link>
         </div>
       )}

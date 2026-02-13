@@ -21,7 +21,33 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
   useEffect(() => {
     const products = storage.getProducts();
     const found = products.find(p => p.id === id);
-    if (found) setProduct(found);
+    if (found) {
+        setProduct(found);
+        
+        // SEO: Update Browser Title
+        if (found.seo?.title) {
+            document.title = found.seo.title;
+        } else {
+            document.title = `${found.flavor} by ${found.brand} | Billionaire Level`;
+        }
+
+        // SEO: Update Meta Description
+        // Note: In a real SSR app, this would be handled server-side. 
+        // For client-side, we update it dynamically for shared links that might scrape JS (like Google sometimes does)
+        // or just for user experience in tab previews.
+        let metaDesc = document.querySelector('meta[name="description"]');
+        if (!metaDesc) {
+            metaDesc = document.createElement('meta');
+            metaDesc.setAttribute('name', 'description');
+            document.head.appendChild(metaDesc);
+        }
+        metaDesc.setAttribute('content', found.seo?.description || found.description);
+    }
+
+    return () => {
+        // Cleanup: Reset title when leaving page
+        document.title = "Billionaire Level";
+    };
   }, [id]);
 
   if (!product) return <div className="p-20 text-center text-gray-500 animate-pulse">Loading Luxury Experience...</div>;

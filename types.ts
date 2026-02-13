@@ -34,6 +34,12 @@ export interface ProductWeight {
 
 export type ProductType = 'Cannabis' | 'Vape';
 
+export interface ProductSEO {
+  title: string;
+  description: string;
+  keywords: string[];
+}
+
 export interface Product {
   id: string;
   productType: ProductType; // New: Distinguish between Cannabis and Vape
@@ -50,6 +56,7 @@ export interface Product {
   description: string;
   isPublished: boolean;
   isFeatured?: boolean; 
+  seo?: ProductSEO; // New: AI SEO Data
 }
 
 export interface CartItem extends Product {

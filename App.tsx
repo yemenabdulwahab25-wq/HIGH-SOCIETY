@@ -13,6 +13,7 @@ import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminInventory } from './pages/admin/AdminInventory';
 import { AdminSettings } from './pages/admin/AdminSettings';
 import { AdminCustomers } from './pages/admin/AdminCustomers';
+import { AdminMarketing } from './pages/admin/AdminMarketing';
 import { storage } from './services/storage';
 import { CartItem, Product, StoreSettings } from './types';
 
@@ -161,6 +162,7 @@ const AppContent = () => {
       <Route path="/admin/dashboard" element={<AdminRoute><Layout isAdmin><AdminDashboard /></Layout></AdminRoute>} />
       <Route path="/admin/customers" element={<AdminRoute><Layout isAdmin><AdminCustomers /></Layout></AdminRoute>} />
       <Route path="/admin/inventory" element={<AdminRoute><Layout isAdmin><AdminInventory /></Layout></AdminRoute>} />
+      <Route path="/admin/marketing" element={<AdminRoute><Layout isAdmin><AdminMarketing /></Layout></AdminRoute>} />
       <Route path="/admin/settings" element={<AdminRoute><Layout isAdmin><AdminSettings settings={settings} onUpdate={setSettings} /></Layout></AdminRoute>} />
 
       {/* Fallback */}

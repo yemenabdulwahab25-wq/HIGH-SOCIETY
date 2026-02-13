@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Chat } from "@google/genai";
-import { Product, ProductType } from "../types";
+import { Product, ProductType, ProductSEO } from "../types";
 
 const apiKey = process.env.API_KEY || ''; // Ideally this is set in env
 const ai = new GoogleGenAI({ apiKey });
@@ -34,6 +34,67 @@ export const generateDescription = async (brand: string, flavor: string, strainO
     console.error("Gemini Error:", error);
     return "Experience the peak of quality with this premium selection.";
   }
+};
+
+export const generateProductSEO = async (product: Product): Promise<ProductSEO | null> => {
+    if (!apiKey) return null;
+    try {
+        const model = 'gemini-3-flash-preview';
+        const prompt = `
+            Act as an SEO Expert for a high-end cannabis and vape store.
+            Generate SEO metadata for the following product:
+            
+            Product: ${product.brand} ${product.flavor}
+            Category: ${product.category}
+            Type: ${product.productType}
+            Description: ${product.description}
+            
+            Requirements:
+            1. Meta Title: Catchy, includes keywords, max 60 characters.
+            2. Meta Description: Persuasive, click-worthy, max 160 characters.
+            3. Keywords: A list of 5 comma-separated high-traffic keywords.
+
+            Return ONLY a JSON object with keys: "title", "description", "keywords" (array of strings).
+        `;
+
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: { responseMimeType: 'application/json' }
+        });
+        
+        return response.text ? JSON.parse(response.text) : null;
+    } catch (e) {
+        console.error("SEO Gen Failed", e);
+        return null;
+    }
+};
+
+export const generateAdCopy = async (product: Product, platform: 'Google' | 'Facebook' | 'Instagram' | 'Email'): Promise<string> => {
+    if (!apiKey) return "AI unavailable.";
+    try {
+        const model = 'gemini-3-flash-preview';
+        let prompt = `Write a ${platform} ad for: ${product.brand} ${product.flavor}.`;
+        
+        if (platform === 'Google') {
+            prompt += ` Strict format: Headline 1 | Headline 2. Description 1. Description 2. Focus on keywords and urgency. No hashtags.`;
+        } else if (platform === 'Facebook') {
+            prompt += ` Casual, engaging tone. Focus on lifestyle and benefits. Include a Call to Action.`;
+        } else if (platform === 'Instagram') {
+            prompt += ` Visual, trendy, high-energy. Short caption. Include 10 relevant hashtags.`;
+        } else {
+            prompt += ` Subject Line and Body copy for an email blast. VIP tone.`;
+        }
+
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt
+        });
+        return response.text || "Ad generation failed.";
+    } catch (e) {
+        console.error("Ad Gen Failed", e);
+        return "Ad generation failed.";
+    }
 };
 
 export const analyzeImage = async (base64Image: string, productType: ProductType = 'Cannabis'): Promise<Partial<Product>> => {
