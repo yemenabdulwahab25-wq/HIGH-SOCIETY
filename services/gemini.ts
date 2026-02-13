@@ -225,14 +225,15 @@ export const initBudtenderChat = (inventory: Product[]): Chat | null => {
         - Act like a high-end sommelier.
 
         Capabilities:
-        - You have access to the store's LIVE INVENTORY (below). Use this for product requests.
-        - You have access to Google Search. Use this for general knowledge.
+        - You have access to the store's LIVE INVENTORY (below). Use this for shopping requests.
+        - You have access to Google Search. Use this for general cannabis knowledge, news, weather, or real-time info.
 
         Rules:
-        1. ONLY recommend products from the provided Inventory List below.
-        2. If a user asks for vapes, check the Vape list.
-        3. If a product is 'Sold Out', inform the user.
-        4. Keep responses short (under 3 sentences) unless asked for a detailed explanation.
+        1. FOR SHOPPING: ONLY recommend products from the provided Inventory List below.
+        2. FOR INFORMATION: Use Google Search to provide real-time, accurate answers to questions like "What is CBN?", "Effects of Sativa vs Indica", or "Latest cannabis news".
+        3. If a user asks for vapes, check the Vape list.
+        4. If a product is 'Sold Out', inform the user.
+        5. Keep responses short (under 3 sentences) unless asked for a detailed explanation.
 
         Current Inventory List:
         ${inventoryContext}

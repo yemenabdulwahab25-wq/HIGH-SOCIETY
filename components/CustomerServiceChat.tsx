@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, X, Send, Sparkles, User, Bot, ExternalLink } from 'lucide-react';
 import { storage } from '../services/storage';
@@ -51,9 +52,12 @@ export const CustomerServiceChat: React.FC = () => {
       
       const responseText = result.text || "I'm having a little trouble connecting to the network right now.";
       
-      // Extract Google Search Sources
+      // Extract Google Search Sources safely
       const chunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks;
-      const sources = chunks?.map(c => c.web).filter(w => w) as Source[] || [];
+      const sources: Source[] = chunks
+        ?.map(c => c.web)
+        .filter((w): w is { uri: string; title: string } => !!(w && w.uri && w.title))
+        .map(w => ({ title: w.title, uri: w.uri })) || [];
       
       setMessages(prev => [...prev, { role: 'model', text: responseText, sources }]);
     } catch (error) {
@@ -125,7 +129,9 @@ export const CustomerServiceChat: React.FC = () => {
                     {/* Render Sources if available */}
                     {msg.sources && msg.sources.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-gray-700">
-                            <p className="text-[10px] text-gray-500 font-bold uppercase mb-2">Sources</p>
+                            <p className="text-[10px] text-gray-500 font-bold uppercase mb-2 flex items-center gap-1">
+                                <Sparkles className="w-3 h-3" /> Grounded in Search
+                            </p>
                             <div className="space-y-1">
                                 {msg.sources.slice(0, 3).map((source, sIdx) => (
                                     <a 
@@ -133,10 +139,10 @@ export const CustomerServiceChat: React.FC = () => {
                                         href={source.uri} 
                                         target="_blank" 
                                         rel="noopener noreferrer"
-                                        className="flex items-center gap-2 text-xs text-cannabis-400 hover:text-cannabis-300 truncate"
+                                        className="flex items-center gap-2 text-xs text-cannabis-400 hover:text-cannabis-300 truncate group"
                                     >
-                                        <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                                        <span className="truncate">{source.title}</span>
+                                        <ExternalLink className="w-3 h-3 flex-shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" />
+                                        <span className="truncate underline decoration-cannabis-500/30 underline-offset-2">{source.title}</span>
                                     </a>
                                 ))}
                             </div>
