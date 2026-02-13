@@ -244,7 +244,9 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
 
               <div className="flex items-end justify-between border-t border-gray-800 pt-3">
                 <div className="flex flex-col">
-                    <span className="text-[10px] text-gray-500 uppercase">Starting at</span>
+                    <span className="text-[10px] text-gray-500 uppercase">
+                        Starting at <span className="text-gray-400">({product.weights[0].label})</span>
+                    </span>
                     <span className="text-lg font-bold text-white group-hover:text-gold-400 transition-colors">${product.weights[0].price}</span>
                 </div>
                 <div className="w-8 h-8 rounded-full bg-dark-800 flex items-center justify-center text-gray-400 group-hover:bg-gold-500 group-hover:text-black transition-all">

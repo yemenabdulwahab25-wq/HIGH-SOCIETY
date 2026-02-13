@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Minus, Plus, Share2, ShieldCheck, Zap, Cloud, Sparkles, Star } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Share2, ShieldCheck, Zap, Cloud, Sparkles, Star, MessageSquare } from 'lucide-react';
 import { storage } from '../services/storage';
-import { Product } from '../types';
+import { Product, Review } from '../types';
 import { Button } from '../components/ui/Button';
 import { getCategoryColor } from './Storefront';
 
@@ -18,6 +18,11 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
   const [selectedWeightIdx, setSelectedWeightIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  
+  // Review State
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [newReview, setNewReview] = useState<{name: string, rating: number, comment: string}>({ name: '', rating: 5, comment: '' });
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   useEffect(() => {
     const products = storage.getProducts();
@@ -26,6 +31,10 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
         setProduct(found);
         setSelectedWeightIdx(0); // Reset selection on product change
         setQuantity(1);
+
+        // Load Reviews
+        const productReviews = storage.getReviews(found.id);
+        setReviews(productReviews);
 
         // SEO: Update Browser Title
         if (found.seo?.title) {
@@ -43,27 +52,17 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
         metaDesc.setAttribute('content', found.seo?.description || found.description);
 
         // RECOMMENDATION ENGINE
-        // 1. Filter: Same Product Type, Different ID, Published
         const others = products.filter(p => p.id !== found.id && p.isPublished && p.productType === found.productType);
-        
-        // 2. Score
         const scored = others.map(p => {
             let score = 0;
-            // Category Match (High Priority)
             if (p.category === found.category) score += 4;
-            // Brand Match
             if (p.brand === found.brand) score += 3;
-            // THC Similarity (for Cannabis)
             if (found.productType === 'Cannabis' && found.thcPercentage && p.thcPercentage) {
                 if (Math.abs(found.thcPercentage - p.thcPercentage) <= 5) score += 2;
             }
-            // Strain Match
             if (found.strain && p.strain === found.strain) score += 1;
-            
             return { product: p, score };
         });
-
-        // 3. Sort & Slice
         scored.sort((a, b) => b.score - a.score);
         setRelatedProducts(scored.slice(0, 3).map(s => s.product));
     }
@@ -74,6 +73,85 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
         document.title = "Billionaire Level";
     };
   }, [id]);
+
+  // Inject JSON-LD Schema Markup
+  useEffect(() => {
+    if (!product) return;
+
+    const aggregateRating = reviews.length > 0 ? {
+        "@type": "AggregateRating",
+        "ratingValue": (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1),
+        "reviewCount": reviews.length
+    } : undefined;
+
+    const schema = {
+        "@context": "https://schema.org/",
+        "@type": "Product",
+        "name": product.flavor,
+        "image": product.imageUrl,
+        "description": product.description,
+        "brand": {
+            "@type": "Brand",
+            "name": product.brand
+        },
+        "offers": {
+            "@type": "Offer",
+            "url": window.location.href,
+            "priceCurrency": "USD",
+            "price": product.weights[0]?.price,
+            "availability": product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+            "itemCondition": "https://schema.org/NewCondition"
+        },
+        ...(aggregateRating && { aggregateRating }),
+        ...(reviews.length > 0 && {
+            "review": reviews.map(r => ({
+                "@type": "Review",
+                "reviewRating": {
+                    "@type": "Rating",
+                    "ratingValue": r.rating,
+                    "bestRating": "5"
+                },
+                "author": {
+                    "@type": "Person",
+                    "name": r.userName
+                },
+                "datePublished": new Date(r.timestamp).toISOString().split('T')[0],
+                "reviewBody": r.comment
+            }))
+        })
+    };
+
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.text = JSON.stringify(schema);
+    document.head.appendChild(script);
+
+    return () => {
+        document.head.removeChild(script);
+    };
+  }, [product, reviews]);
+
+  const handleSubmitReview = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!product || !newReview.name || !newReview.comment) return;
+      setIsSubmittingReview(true);
+
+      const review: Review = {
+          id: Math.random().toString(36).substr(2, 9),
+          productId: product.id,
+          userName: newReview.name,
+          rating: newReview.rating,
+          comment: newReview.comment,
+          timestamp: Date.now()
+      };
+
+      storage.addReview(review);
+      
+      // Update local state instantly
+      setReviews(prev => [review, ...prev]);
+      setNewReview({ name: '', rating: 5, comment: '' });
+      setIsSubmittingReview(false);
+  };
 
   if (!product) return <div className="p-20 text-center text-gray-500 animate-pulse">Loading Luxury Experience...</div>;
 
@@ -87,6 +165,11 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
     addToCart(product, selectedWeightIdx, quantity);
     navigate('/cart');
   };
+
+  // Calculate Average Rating
+  const averageRating = reviews.length > 0 
+    ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) 
+    : null;
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in zoom-in-95 duration-500">
@@ -130,7 +213,7 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
             
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 leading-tight">{product.flavor}</h1>
             
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 mb-4">
                {product.productType === 'Vape' ? (
                    <span className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-blue-900/30 text-blue-300 border border-blue-500/30 flex items-center gap-2">
                        <Cloud className="w-3 h-3" />
@@ -152,6 +235,20 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
                        </span>
                    </>
                )}
+            </div>
+            
+            {/* Rating Summary */}
+            <div className="flex items-center gap-2 text-sm">
+                <div className="flex">
+                    {[1,2,3,4,5].map(star => (
+                        <Star key={star} className={`w-4 h-4 ${averageRating && parseFloat(averageRating) >= star ? 'fill-gold-400 text-gold-400' : 'text-gray-600'}`} />
+                    ))}
+                </div>
+                {reviews.length > 0 ? (
+                    <span className="text-gray-400">{averageRating} ({reviews.length} reviews)</span>
+                ) : (
+                    <span className="text-gray-500 italic">No reviews yet</span>
+                )}
             </div>
           </div>
 
@@ -237,6 +334,94 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
              </Button>
           </div>
         </div>
+      </div>
+
+      {/* REVIEWS SECTION */}
+      <div className="mt-16 pt-12 border-t border-gray-800/50">
+          <div className="flex items-center justify-between mb-8">
+               <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+                   <MessageSquare className="w-5 h-5 text-cannabis-500" /> Verified Feedback
+               </h3>
+               {averageRating && (
+                   <div className="flex items-center gap-2 text-gold-400 font-bold bg-dark-900 px-4 py-2 rounded-xl border border-gray-800">
+                       <Star className="w-5 h-5 fill-gold-400" /> {averageRating} / 5.0
+                   </div>
+               )}
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-12">
+              {/* Review List */}
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                  {reviews.length === 0 && (
+                      <div className="text-center py-12 bg-dark-900/50 rounded-xl border border-gray-800 border-dashed">
+                          <p className="text-gray-500">No reviews yet. Be the first to rate this product.</p>
+                      </div>
+                  )}
+                  {reviews.map(r => (
+                      <div key={r.id} className="bg-dark-900 p-5 rounded-xl border border-gray-800">
+                          <div className="flex items-center justify-between mb-2">
+                              <span className="font-bold text-white">{r.userName}</span>
+                              <div className="flex text-gold-400">
+                                  {[1,2,3,4,5].map(s => (
+                                      <Star key={s} className={`w-3 h-3 ${r.rating >= s ? 'fill-gold-400' : 'text-gray-700 fill-gray-700'}`} />
+                                  ))}
+                              </div>
+                          </div>
+                          <p className="text-gray-300 text-sm leading-relaxed mb-2">"{r.comment}"</p>
+                          <p className="text-xs text-gray-600">{new Date(r.timestamp).toLocaleDateString()}</p>
+                      </div>
+                  ))}
+              </div>
+
+              {/* Add Review Form */}
+              <div className="bg-dark-900 rounded-2xl p-6 border border-gray-800 h-fit sticky top-24">
+                  <h4 className="text-lg font-bold text-white mb-4">Leave a Review</h4>
+                  <form onSubmit={handleSubmitReview} className="space-y-4">
+                      <div>
+                          <label className="text-xs text-gray-500 block mb-1">Your Name</label>
+                          <input 
+                              required
+                              type="text" 
+                              className="w-full bg-dark-800 border border-gray-700 rounded-lg p-3 text-white focus:border-cannabis-500 outline-none"
+                              placeholder="John Doe"
+                              value={newReview.name}
+                              onChange={e => setNewReview({...newReview, name: e.target.value})}
+                          />
+                      </div>
+                      <div>
+                          <label className="text-xs text-gray-500 block mb-1">Rating</label>
+                          <div className="flex gap-2">
+                              {[1,2,3,4,5].map(star => (
+                                  <button
+                                      key={star}
+                                      type="button"
+                                      onClick={() => setNewReview({...newReview, rating: star})}
+                                      className="focus:outline-none transition-transform hover:scale-110"
+                                  >
+                                      <Star className={`w-8 h-8 ${newReview.rating >= star ? 'fill-gold-400 text-gold-400' : 'text-gray-700'}`} />
+                                  </button>
+                              ))}
+                          </div>
+                      </div>
+                      <div>
+                          <label className="text-xs text-gray-500 block mb-1">Comment</label>
+                          <textarea 
+                              required
+                              className="w-full bg-dark-800 border border-gray-700 rounded-lg p-3 text-white focus:border-cannabis-500 outline-none h-24 resize-none"
+                              placeholder="Tell us about the flavor and effects..."
+                              value={newReview.comment}
+                              onChange={e => setNewReview({...newReview, comment: e.target.value})}
+                          />
+                      </div>
+                      <Button fullWidth disabled={isSubmittingReview}>
+                          {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
+                      </Button>
+                      <p className="text-xs text-gray-500 text-center mt-2">
+                          Reviews are public and help others make informed choices.
+                      </p>
+                  </form>
+              </div>
+          </div>
       </div>
 
       {/* RELATED PRODUCTS */}

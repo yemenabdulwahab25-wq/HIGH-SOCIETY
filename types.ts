@@ -40,6 +40,15 @@ export interface ProductSEO {
   keywords: string[];
 }
 
+export interface Review {
+  id: string;
+  productId: string;
+  userName: string;
+  rating: number; // 1-5
+  comment: string;
+  timestamp: number;
+}
+
 export interface Product {
   id: string;
   productType: ProductType; // New: Distinguish between Cannabis and Vape

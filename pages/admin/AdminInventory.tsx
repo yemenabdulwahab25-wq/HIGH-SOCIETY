@@ -26,6 +26,11 @@ const INITIAL_FORM: Product = {
   ]
 };
 
+const SUGGESTED_VARIANTS = {
+    Cannabis: ['1g', '3.5g', '7g', '14g', '28g (1oz)', 'Pre-Roll', '5-Pack', 'Edible Pack'],
+    Vape: ['Single Unit', '5-Pack', '10-Pack Box', 'Master Case']
+};
+
 export const AdminInventory: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ProductType>('Cannabis'); // Controls List View
   const [form, setForm] = useState<Product>(INITIAL_FORM); // Controls Form Data
@@ -77,7 +82,7 @@ export const AdminInventory: React.FC = () => {
             ...prev,
             productType: activeTab,
             category: activeTab === 'Vape' ? 'Vape' : Category.FLOWER,
-            weights: activeTab === 'Vape' ? [{ label: '1pc', price: 20, weightGrams: 0, stock: 50 }] : INITIAL_FORM.weights
+            weights: activeTab === 'Vape' ? [{ label: 'Single Unit', price: 20, weightGrams: 0, stock: 50 }] : INITIAL_FORM.weights
         }));
     }
   }, [activeTab]);
@@ -94,7 +99,7 @@ export const AdminInventory: React.FC = () => {
           productType: type,
           // Reset relevant fields for the new type
           category: type === 'Vape' ? 'Vape' : Category.FLOWER,
-          weights: type === 'Vape' ? [{ label: '1pc', price: 20, weightGrams: 0, stock: 50 }] : INITIAL_FORM.weights
+          weights: type === 'Vape' ? [{ label: 'Single Unit', price: 20, weightGrams: 0, stock: 50 }] : INITIAL_FORM.weights
       }));
   };
 
@@ -109,6 +114,24 @@ export const AdminInventory: React.FC = () => {
         ...prev,
         weights: [...prev.weights, { label: '', price: 0, weightGrams: 0, stock: 0 }]
     }));
+  };
+
+  const handleQuickAddVariant = (label: string) => {
+      // If the last variant is empty (default state), replace it. Otherwise add new.
+      const lastVariant = form.weights[form.weights.length - 1];
+      const isLastEmpty = lastVariant && lastVariant.label === '' && lastVariant.price === 0;
+
+      if (isLastEmpty && form.weights.length === 1) {
+          setForm(prev => ({
+              ...prev,
+              weights: [{ label, price: 0, weightGrams: 0, stock: 0 }]
+          }));
+      } else {
+           setForm(prev => ({
+              ...prev,
+              weights: [...prev.weights, { label, price: 0, weightGrams: 0, stock: 0 }]
+          }));
+      }
   };
 
   const handleRemoveWeight = (index: number) => {
@@ -502,45 +525,60 @@ export const AdminInventory: React.FC = () => {
 
           {/* Pricing Weights */}
           <div className="bg-dark-900/50 p-4 rounded-xl border border-gray-700">
-              <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-bold text-gray-300">Product Variants</label>
-                  <span className="text-xs text-gray-500">Manage price & stock per size</span>
+              <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <label className="text-sm font-bold text-gray-300">Product Variants</label>
+                    <div className="text-xs text-gray-500">Define sizes, packs, or unit types</div>
+                  </div>
+                  
+                  {/* Quick Add Buttons */}
+                  <div className="flex gap-2 flex-wrap justify-end">
+                      {SUGGESTED_VARIANTS[form.productType].slice(0, 4).map(label => (
+                         <button
+                            key={label}
+                            onClick={() => handleQuickAddVariant(label)}
+                            className="text-[10px] bg-dark-800 hover:bg-dark-700 border border-gray-700 rounded px-2 py-1 text-gray-400 transition-colors whitespace-nowrap"
+                         >
+                            + {label}
+                         </button>
+                      ))}
+                  </div>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {form.weights.map((w, idx) => (
-                    <div key={idx} className="flex gap-2 items-start">
+                    <div key={idx} className="flex gap-3 items-start p-3 bg-dark-950/30 rounded-lg border border-gray-800/50">
                         <div className="flex-1">
-                            <label className="text-[10px] text-gray-500 uppercase font-bold pl-1 mb-0.5 block">Variation / Size</label>
+                            <label className="text-[10px] text-gray-500 uppercase font-bold pl-1 mb-1 block">Label / Size</label>
                             <input 
-                                className="w-full bg-dark-800 border border-gray-700 rounded-lg p-2 text-white text-sm placeholder-gray-600"
+                                className="w-full bg-dark-800 border border-gray-700 rounded-lg p-2 text-white text-sm placeholder-gray-600 focus:border-cannabis-500 focus:outline-none"
                                 value={w.label}
                                 onChange={e => handleWeightChange(idx, 'label', e.target.value)}
-                                placeholder={isVapeForm ? "e.g. 1pc" : "e.g. 3.5g"}
+                                placeholder="e.g. 3.5g, Box, Single"
                             />
                         </div>
                         <div className="w-24">
-                             <label className="text-[10px] text-gray-500 uppercase font-bold pl-1 mb-0.5 block">Price ($)</label>
+                             <label className="text-[10px] text-gray-500 uppercase font-bold pl-1 mb-1 block">Price ($)</label>
                              <input 
                                 type="number"
-                                className="w-full bg-dark-800 border border-gray-700 rounded-lg p-2 text-white text-sm"
+                                className="w-full bg-dark-800 border border-gray-700 rounded-lg p-2 text-white text-sm focus:border-cannabis-500 focus:outline-none"
                                 value={w.price}
                                 onChange={e => handleWeightChange(idx, 'price', Number(e.target.value))}
                             />
                         </div>
-                        <div className="w-20">
-                             <label className="text-[10px] text-gray-500 uppercase font-bold pl-1 mb-0.5 block">Stock</label>
+                        <div className="w-24">
+                             <label className="text-[10px] text-gray-500 uppercase font-bold pl-1 mb-1 block">Stock</label>
                              <input 
                                 type="number"
-                                className="w-full bg-dark-800 border border-gray-700 rounded-lg p-2 text-white text-sm"
+                                className="w-full bg-dark-800 border border-gray-700 rounded-lg p-2 text-white text-sm focus:border-cannabis-500 focus:outline-none"
                                 value={w.stock}
                                 onChange={e => handleWeightChange(idx, 'stock', Number(e.target.value))}
                             />
                         </div>
-                        <div className="pt-6">
+                        <div className="pt-7">
                             <button 
                                 onClick={() => handleRemoveWeight(idx)}
-                                className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                                className="p-1.5 text-gray-500 hover:text-red-500 transition-colors hover:bg-red-500/10 rounded-lg"
                                 disabled={form.weights.length <= 1}
                             >
                                 <Trash2 className="w-5 h-5" />
@@ -552,9 +590,9 @@ export const AdminInventory: React.FC = () => {
               
               <button 
                 onClick={handleAddWeight}
-                className={`mt-4 flex items-center gap-2 text-sm font-medium transition-colors ${isVapeForm ? 'text-blue-400' : 'text-cannabis-500'}`}
+                className={`mt-4 w-full py-2 border-2 border-dashed border-gray-700 rounded-xl flex items-center justify-center gap-2 text-sm font-bold transition-all hover:border-gray-500 hover:bg-dark-800 ${isVapeForm ? 'text-blue-400' : 'text-cannabis-500'}`}
               >
-                  <Plus className="w-4 h-4" /> Add Variation
+                  <Plus className="w-4 h-4" /> Add Custom Variant
               </button>
           </div>
 

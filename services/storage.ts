@@ -1,5 +1,5 @@
 
-import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category, HolidayTheme } from '../types';
+import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category, HolidayTheme, Review } from '../types';
 
 const KEYS = {
   PRODUCTS: 'hs_products',
@@ -10,6 +10,7 @@ const KEYS = {
   CATEGORIES: 'hs_categories',
   BRANDS: 'hs_brands',
   BRAND_LOGOS: 'hs_brand_logos',
+  REVIEWS: 'hs_reviews',
 };
 
 // Seed Data
@@ -245,4 +246,17 @@ export const storage = {
     localStorage.setItem(KEYS.BRAND_LOGOS, JSON.stringify(logos));
     notifyUpdate();
   },
+  // Reviews
+  getReviews: (productId: string): Review[] => {
+    const data = localStorage.getItem(KEYS.REVIEWS);
+    const allReviews: Review[] = data ? JSON.parse(data) : [];
+    return allReviews.filter(r => r.productId === productId).sort((a,b) => b.timestamp - a.timestamp);
+  },
+  addReview: (review: Review) => {
+    const data = localStorage.getItem(KEYS.REVIEWS);
+    const allReviews: Review[] = data ? JSON.parse(data) : [];
+    allReviews.push(review);
+    localStorage.setItem(KEYS.REVIEWS, JSON.stringify(allReviews));
+    notifyUpdate();
+  }
 };
