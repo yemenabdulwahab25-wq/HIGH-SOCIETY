@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, Clock, RotateCcw, User, Phone, LogOut, Ticket, Copy, AlertCircle } from 'lucide-react';
+import { Package, Clock, RotateCcw, User, Phone, LogOut, Ticket, Copy, AlertCircle, Lock, ShieldCheck, ChevronRight } from 'lucide-react';
 import { storage } from '../services/storage';
-import { Order, OrderStatus, Product } from '../types';
+import { Order, OrderStatus, Product, Customer } from '../types';
 import { Button } from '../components/ui/Button';
 
 interface AccountProps {
@@ -12,43 +12,102 @@ interface AccountProps {
 
 export const Account: React.FC<AccountProps> = ({ addToCart }) => {
   const navigate = useNavigate();
-  const [userInfo, setUserInfo] = useState<{name: string, phone: string} | null>(null);
+  const [currentUser, setCurrentUser] = useState<Customer | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [loginPhone, setLoginPhone] = useState('');
+  
+  // Login State
+  const [view, setView] = useState<'login' | 'register'>('login');
+  const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
 
+  // Check for active session on mount
   useEffect(() => {
-    const saved = localStorage.getItem('hs_customer_info');
-    if (saved) {
-      const user = JSON.parse(saved);
-      setUserInfo(user);
+    // We now use sessionStorage for the active session, so closing the browser logs you out (Security feature)
+    const session = sessionStorage.getItem('hs_active_session');
+    if (session) {
+      const user = JSON.parse(session);
+      setCurrentUser(user);
       loadHistory(user.phone);
     }
   }, []);
 
   const loadHistory = (phone: string) => {
-      const allOrders = storage.getOrders();
-      // Simple normalization to match varying phone formats
+      const allOrders = storage.getOrders(); // Decrypted automatically
       const cleanPhone = phone.replace(/\D/g, '');
       const userOrders = allOrders.filter(o => o.customerPhone.replace(/\D/g, '') === cleanPhone);
-      // Sort newest first
       setOrders(userOrders.sort((a,b) => b.timestamp - a.timestamp));
   };
 
   const handleLogin = (e: React.FormEvent) => {
       e.preventDefault();
-      if(loginPhone.length > 3) {
-          const user = { name: 'Valued Customer', phone: loginPhone };
-          localStorage.setItem('hs_customer_info', JSON.stringify(user));
-          setUserInfo(user);
-          loadHistory(loginPhone);
+      setError('');
+      
+      const customer = storage.getCustomer(phone);
+      if (!customer) {
+          // If no customer found, prompt to register
+          setError("Account not found. Please register.");
+          setView('register');
+          return;
+      }
+
+      if (customer.pin === pin) {
+          // Success
+          sessionStorage.setItem('hs_active_session', JSON.stringify(customer));
+          setCurrentUser(customer);
+          loadHistory(phone);
+          setPin('');
+      } else {
+          setError("Incorrect PIN.");
       }
   };
 
+  const handleRegister = (e: React.FormEvent) => {
+      e.preventDefault();
+      setError('');
+
+      if (pin.length < 4) {
+          setError("PIN must be at least 4 digits.");
+          return;
+      }
+
+      const cleanPhone = phone.replace(/\D/g, '');
+      if (cleanPhone.length < 10) {
+          setError("Please enter a valid phone number.");
+          return;
+      }
+
+      const existing = storage.getCustomer(phone);
+      if (existing) {
+          setError("Account already exists. Please login.");
+          setView('login');
+          return;
+      }
+
+      const newCustomer: Customer = {
+          id: cleanPhone,
+          name,
+          phone,
+          email,
+          pin,
+          joinedDate: Date.now()
+      };
+
+      storage.saveCustomer(newCustomer);
+      sessionStorage.setItem('hs_active_session', JSON.stringify(newCustomer));
+      setCurrentUser(newCustomer);
+      loadHistory(phone);
+  };
+
   const handleLogout = () => {
-      localStorage.removeItem('hs_customer_info');
-      setUserInfo(null);
+      sessionStorage.removeItem('hs_active_session');
+      setCurrentUser(null);
       setOrders([]);
-      setLoginPhone('');
+      setPhone('');
+      setPin('');
+      setView('login');
   };
 
   const handleBuyAgain = (order: Order) => {
@@ -58,25 +117,14 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
       let missingCount = 0;
 
       order.items.forEach(item => {
-          // Find if product still exists in catalog
           const currentProduct = currentProducts.find(p => p.id === item.id);
-          
           if (currentProduct && currentProduct.isPublished) {
-              // Find matching weight index
               const weightIndex = currentProduct.weights.findIndex(w => w.label === item.selectedWeight.label);
-              
               if (weightIndex >= 0) {
                   const currentVariant = currentProduct.weights[weightIndex];
-                  
-                  // Check available stock
                   if (currentVariant.stock > 0) {
-                      // Don't add more than available
                       const qtyToAdd = Math.min(item.quantity, currentVariant.stock);
-                      
-                      if (qtyToAdd < item.quantity) {
-                          partialStockCount++;
-                      }
-
+                      if (qtyToAdd < item.quantity) partialStockCount++;
                       addToCart(currentProduct, weightIndex, qtyToAdd);
                       addedCount++;
                   } else {
@@ -92,35 +140,140 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
 
       if (addedCount > 0) {
           if (partialStockCount > 0 || missingCount > 0) {
-              alert(`Added available items to cart. ${missingCount} items were unavailable and ${partialStockCount} had limited stock.`);
+              alert(`Added available items. ${missingCount} unavailable, ${partialStockCount} limited stock.`);
           }
           navigate('/cart');
       } else {
-          alert("Sorry, the items from this order are currently out of stock or no longer available.");
+          alert("Sorry, items are out of stock.");
       }
   };
 
-  if (!userInfo) {
+  if (!currentUser) {
       return (
           <div className="max-w-md mx-auto py-12 px-4">
-              <div className="bg-dark-800 p-8 rounded-2xl border border-gray-700 text-center">
-                  <div className="w-16 h-16 bg-cannabis-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <User className="w-8 h-8 text-cannabis-500" />
+              <div className="bg-dark-800 p-8 rounded-3xl border border-gray-700 shadow-2xl relative overflow-hidden">
+                  {/* Decorative Glow */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-cannabis-500/10 rounded-full blur-[50px] -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+
+                  <div className="w-16 h-16 bg-gradient-to-br from-dark-900 to-dark-950 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-gray-700 shadow-inner">
+                      <Lock className="w-8 h-8 text-cannabis-500" />
                   </div>
-                  <h1 className="text-2xl font-bold text-white mb-2">Track Your Orders</h1>
-                  <p className="text-gray-400 mb-6">Enter your phone number to view your order history and re-order favorites.</p>
                   
-                  <form onSubmit={handleLogin} className="space-y-4">
-                      <input 
-                        type="tel" 
-                        placeholder="Phone Number" 
-                        className="w-full bg-dark-900 border border-gray-700 rounded-xl px-4 py-3 text-white text-center text-lg focus:border-cannabis-500 outline-none"
-                        value={loginPhone}
-                        onChange={e => setLoginPhone(e.target.value)}
-                        autoFocus
-                      />
-                      <Button fullWidth size="lg" type="submit">View History</Button>
-                  </form>
+                  <h1 className="text-2xl font-bold text-white mb-2 text-center">
+                      {view === 'login' ? 'Secure Login' : 'Create Account'}
+                  </h1>
+                  <p className="text-gray-400 mb-8 text-center text-sm">
+                      {view === 'login' 
+                        ? 'Access your order history and rewards.' 
+                        : 'Join the Billionaire Level club.'}
+                  </p>
+                  
+                  {view === 'login' ? (
+                      <form onSubmit={handleLogin} className="space-y-4">
+                          <div>
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1 mb-1 block">Phone Number</label>
+                              <input 
+                                type="tel" 
+                                placeholder="(555) 555-5555" 
+                                className="w-full bg-dark-900 border border-gray-600 rounded-xl px-4 py-3 text-white focus:border-cannabis-500 focus:ring-1 focus:ring-cannabis-500 outline-none"
+                                value={phone}
+                                onChange={e => setPhone(e.target.value)}
+                                autoFocus
+                              />
+                          </div>
+                          <div>
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1 mb-1 block">4-Digit PIN</label>
+                              <input 
+                                type="password" 
+                                placeholder="••••" 
+                                maxLength={4}
+                                inputMode="numeric"
+                                className="w-full bg-dark-900 border border-gray-600 rounded-xl px-4 py-3 text-white tracking-widest text-center text-lg focus:border-cannabis-500 focus:ring-1 focus:ring-cannabis-500 outline-none"
+                                value={pin}
+                                onChange={e => setPin(e.target.value)}
+                              />
+                          </div>
+                          
+                          {error && <div className="text-red-400 text-sm text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20">{error}</div>}
+                          
+                          <Button fullWidth size="lg" type="submit" className="shadow-lg shadow-cannabis-500/20">
+                              Access Account
+                          </Button>
+                          
+                          <div className="text-center pt-2">
+                              <button type="button" onClick={() => { setView('register'); setError(''); }} className="text-sm text-gray-500 hover:text-white transition-colors">
+                                  New here? <span className="text-cannabis-400 font-bold">Register</span>
+                              </button>
+                          </div>
+                      </form>
+                  ) : (
+                      <form onSubmit={handleRegister} className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <label className="text-xs font-bold text-gray-500 uppercase ml-1 mb-1 block">Name</label>
+                                  <input 
+                                    type="text" 
+                                    placeholder="John Doe" 
+                                    className="w-full bg-dark-900 border border-gray-600 rounded-xl px-4 py-3 text-white focus:border-cannabis-500 outline-none text-sm"
+                                    value={name}
+                                    onChange={e => setName(e.target.value)}
+                                    required
+                                  />
+                              </div>
+                              <div>
+                                  <label className="text-xs font-bold text-gray-500 uppercase ml-1 mb-1 block">Phone</label>
+                                  <input 
+                                    type="tel" 
+                                    placeholder="555-0199" 
+                                    className="w-full bg-dark-900 border border-gray-600 rounded-xl px-4 py-3 text-white focus:border-cannabis-500 outline-none text-sm"
+                                    value={phone}
+                                    onChange={e => setPhone(e.target.value)}
+                                    required
+                                  />
+                              </div>
+                          </div>
+                          <div>
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1 mb-1 block">Email (Optional)</label>
+                              <input 
+                                type="email" 
+                                placeholder="vip@billionaire.com" 
+                                className="w-full bg-dark-900 border border-gray-600 rounded-xl px-4 py-3 text-white focus:border-cannabis-500 outline-none text-sm"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                              />
+                          </div>
+                          <div>
+                              <label className="text-xs font-bold text-gray-500 uppercase ml-1 mb-1 block">Create PIN (4 Digits)</label>
+                              <input 
+                                type="password" 
+                                placeholder="••••" 
+                                maxLength={4}
+                                inputMode="numeric"
+                                className="w-full bg-dark-900 border border-gray-600 rounded-xl px-4 py-3 text-white tracking-widest text-center text-lg focus:border-cannabis-500 outline-none"
+                                value={pin}
+                                onChange={e => setPin(e.target.value)}
+                                required
+                              />
+                          </div>
+
+                          {error && <div className="text-red-400 text-sm text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20">{error}</div>}
+
+                          <Button fullWidth size="lg" type="submit">
+                              Create Profile
+                          </Button>
+
+                          <div className="text-center pt-2">
+                              <button type="button" onClick={() => { setView('login'); setError(''); }} className="text-sm text-gray-500 hover:text-white transition-colors">
+                                  Already a member? <span className="text-cannabis-400 font-bold">Login</span>
+                              </button>
+                          </div>
+                      </form>
+                  )}
+              </div>
+              
+              <div className="text-center mt-8 text-gray-600 text-xs flex items-center justify-center gap-2">
+                  <ShieldCheck className="w-3 h-3" />
+                  Secured by Billionaire Vault™
               </div>
           </div>
       );
@@ -130,14 +283,14 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
     <div className="space-y-6 pb-20">
       <div className="flex items-center justify-between">
           <div>
-              <h1 className="text-2xl font-bold text-white">My Account</h1>
-              <div className="flex items-center gap-2 text-gray-400 mt-1">
-                  <User className="w-4 h-4" /> {userInfo.name}
-                  <span className="mx-1">•</span>
-                  <Phone className="w-4 h-4" /> {userInfo.phone}
+              <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                  {currentUser.name} <span className="text-xs bg-gold-500/20 text-gold-400 border border-gold-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Member</span>
+              </h1>
+              <div className="flex items-center gap-2 text-gray-400 mt-1 text-sm">
+                  <Phone className="w-3 h-3" /> {currentUser.phone}
               </div>
           </div>
-          <button onClick={handleLogout} className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors">
+          <button onClick={handleLogout} className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors" title="Secure Logout">
               <LogOut className="w-5 h-5" />
           </button>
       </div>
@@ -150,7 +303,7 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
 
           {orders.length === 0 && (
               <div className="text-center py-12 bg-dark-800 rounded-xl border border-gray-800">
-                  <p className="text-gray-500">No orders found for this number.</p>
+                  <p className="text-gray-500">No orders found.</p>
                   <Button className="mt-4" onClick={() => navigate('/')}>Start Shopping</Button>
               </div>
           )}
@@ -188,12 +341,11 @@ export const Account: React.FC<AccountProps> = ({ addToCart }) => {
                           </div>
                           <div className="flex items-center gap-1 text-xs text-gray-500">
                               <Clock className="w-3 h-3" />
-                              {new Date(order.timestamp).toLocaleDateString()} at {new Date(order.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              {new Date(order.timestamp).toLocaleDateString()}
                           </div>
                       </div>
                       <div className="text-right">
                           <div className="text-xl font-bold text-white">${order.total.toFixed(2)}</div>
-                          {order.discountAmount ? <div className="text-xs text-green-400">Saved ${order.discountAmount.toFixed(2)}</div> : null}
                       </div>
                   </div>
 

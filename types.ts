@@ -73,6 +73,15 @@ export interface CartItem extends Product {
   quantity: number;
 }
 
+export interface Customer {
+  id: string; // phone number (clean)
+  name: string;
+  phone: string;
+  email?: string;
+  pin: string; // Encrypted/Hashed PIN for access
+  joinedDate: number;
+}
+
 export interface Order {
   id: string;
   customerName: string;

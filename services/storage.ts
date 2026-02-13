@@ -1,16 +1,48 @@
 
-import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category, HolidayTheme, Review } from '../types';
+import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category, HolidayTheme, Review, Customer } from '../types';
 
 const KEYS = {
   PRODUCTS: 'hs_products',
-  ORDERS: 'hs_orders',
+  ORDERS: 'hs_orders_secure', // Renamed to indicate encryption
   SETTINGS: 'hs_settings',
   CART: 'hs_cart',
   USER: 'hs_user',
+  CUSTOMERS: 'hs_customers_secure', // New Encrypted Customer Store
   CATEGORIES: 'hs_categories',
   BRANDS: 'hs_brands',
   BRAND_LOGOS: 'hs_brand_logos',
   REVIEWS: 'hs_reviews',
+};
+
+// --- SECURITY UTILS ---
+// Simple Encryption Simulation (XOR + Base64) to prevent plain-text storage
+// In a real production app, this would be replaced by Web Crypto API or server-side storage.
+const SECRET_SALT = "BILLIONAIRE_SECURE_VAULT_2024";
+
+const encryptData = (data: any): string => {
+    try {
+        const json = JSON.stringify(data);
+        const chars = json.split('');
+        // Simple scrambling based on salt
+        const xor = chars.map((c, i) => c.charCodeAt(0) ^ SECRET_SALT.charCodeAt(i % SECRET_SALT.length));
+        return btoa(String.fromCharCode(...xor));
+    } catch (e) {
+        console.error("Encryption failed", e);
+        return "";
+    }
+};
+
+const decryptData = (encoded: string | null): any => {
+    if (!encoded) return null;
+    try {
+        const str = atob(encoded);
+        const chars = str.split('');
+        const xor = chars.map((c, i) => String.fromCharCode(c.charCodeAt(0) ^ SECRET_SALT.charCodeAt(i % SECRET_SALT.length)));
+        return JSON.parse(xor.join(''));
+    } catch (e) {
+        console.error("Decryption failed", e);
+        return null;
+    }
 };
 
 // Seed Data
@@ -149,9 +181,23 @@ export const storage = {
      localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
      notifyUpdate();
   },
+  
+  // --- SECURE ORDER STORAGE ---
   getOrders: (): Order[] => {
     const data = localStorage.getItem(KEYS.ORDERS);
-    return data ? JSON.parse(data) : [];
+    // Backward compatibility: If plain JSON (legacy), read it. If encrypted, decrypt.
+    if (!data) return [];
+    
+    // Try decrypting first
+    const decrypted = decryptData(data);
+    if (decrypted) return decrypted;
+
+    // Fallback for legacy plain text (migration would happen on next save)
+    try {
+        return JSON.parse(data);
+    } catch {
+        return [];
+    }
   },
   saveOrder: (order: Order) => {
     const orders = storage.getOrders();
@@ -161,9 +207,32 @@ export const storage = {
     } else {
       orders.unshift(order); // Newest first
     }
-    localStorage.setItem(KEYS.ORDERS, JSON.stringify(orders));
+    // Encrypt before saving
+    localStorage.setItem(KEYS.ORDERS, encryptData(orders));
     notifyUpdate();
   },
+
+  // --- SECURE CUSTOMER STORAGE ---
+  saveCustomer: (customer: Customer) => {
+      const customers = storage.getCustomers();
+      const index = customers.findIndex(c => c.id === customer.id);
+      if (index >= 0) {
+          customers[index] = customer;
+      } else {
+          customers.push(customer);
+      }
+      localStorage.setItem(KEYS.CUSTOMERS, encryptData(customers));
+  },
+  getCustomers: (): Customer[] => {
+      const data = localStorage.getItem(KEYS.CUSTOMERS);
+      const decrypted = decryptData(data);
+      return decrypted || [];
+  },
+  getCustomer: (phone: string): Customer | undefined => {
+      const cleanPhone = phone.replace(/\D/g, '');
+      return storage.getCustomers().find(c => c.id === cleanPhone);
+  },
+
   getSettings: (): StoreSettings => {
     const data = localStorage.getItem(KEYS.SETTINGS);
     const saved = data ? JSON.parse(data) : {};
@@ -259,9 +328,9 @@ export const storage = {
     localStorage.setItem(KEYS.REVIEWS, JSON.stringify(allReviews));
     notifyUpdate();
   },
-  // Customer Data
+  // Customer Data - Read from Secure Order history + Customer DB
   getCustomerEmails: (): string[] => {
-      const orders = storage.getOrders();
+      const orders = storage.getOrders(); // This handles decryption automatically
       const emails = new Set<string>();
       orders.forEach(o => {
           if (o.customerEmail) emails.add(o.customerEmail);

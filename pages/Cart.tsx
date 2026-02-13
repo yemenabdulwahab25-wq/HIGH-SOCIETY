@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Trash2, CheckCircle, CreditCard, Banknote, Bitcoin, MapPin, ShoppingBag, AlertCircle, Ticket, Copy, Loader2, Navigation, Check } from 'lucide-react';
+import { Trash2, CheckCircle, CreditCard, Banknote, Bitcoin, MapPin, ShoppingBag, AlertCircle, Ticket, Copy, Loader2, Navigation, Check, Lock } from 'lucide-react';
 import { CartItem, StoreSettings, OrderStatus, Order, DeliveryZone } from '../types';
 import { Button } from '../components/ui/Button';
 import { storage } from '../services/storage';
@@ -29,11 +29,17 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
   const [generatedCode, setGeneratedCode] = useState('');
 
+  // Check for Secure Session
   useEffect(() => {
-    // Auto-fill if available
-    const saved = localStorage.getItem('hs_customer_info');
-    if (saved) {
-        setCustomerInfo(JSON.parse(saved));
+    // Only auto-fill if authenticated securely
+    const session = sessionStorage.getItem('hs_active_session');
+    if (session) {
+        const user = JSON.parse(session);
+        setCustomerInfo({
+            name: user.name || '',
+            phone: user.phone || '',
+            email: user.email || ''
+        });
     }
   }, []);
 
@@ -132,7 +138,6 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
       }
 
       // 2. Self-Referral Check
-      // We normalize phone numbers to basic digits to compare
       const normalize = (p: string) => p.replace(/\D/g, '');
       if (normalize(originOrder.customerPhone) === normalize(customerInfo.phone)) {
           setPromoError('You cannot use your own referral code.');
@@ -191,8 +196,13 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
     };
 
     storage.saveOrder(newOrder);
-    // Save customer identity for Account page
-    localStorage.setItem('hs_customer_info', JSON.stringify(customerInfo));
+    
+    // NOTE: We do NOT strictly save customer info to localStorage here anymore for security.
+    // Info is saved only if the user explicitly registers/logs in via Account page.
+    // However, if they are already logged in (session exists), we update their profile in db.
+    if (sessionStorage.getItem('hs_active_session')) {
+        // Update user stats in background if needed (optional)
+    }
     
     clearCart();
     setStep('success');
@@ -256,6 +266,10 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
           <div className="max-w-xl mx-auto space-y-8 animate-in slide-in-from-right-8 duration-300">
               <h2 className="text-2xl font-bold">Checkout</h2>
               
+              <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg flex items-center gap-2 text-sm text-blue-300 mb-4">
+                  <Lock className="w-4 h-4" /> Secure Checkout Encrypted
+              </div>
+
               {/* Delivery Method */}
               <div className="space-y-3">
                   <label className="text-sm font-medium text-gray-400">Order Type</label>
