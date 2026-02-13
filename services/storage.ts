@@ -9,6 +9,7 @@ const KEYS = {
   USER: 'hs_user',
   CATEGORIES: 'hs_categories',
   BRANDS: 'hs_brands',
+  BRAND_LOGOS: 'hs_brand_logos',
 };
 
 // Seed Data
@@ -224,6 +225,24 @@ export const storage = {
   deleteBrand: (brand: string) => {
     const brands = storage.getBrands().filter(b => b !== brand);
     localStorage.setItem(KEYS.BRANDS, JSON.stringify(brands));
+    
+    // Also remove logo if it exists
+    const logos = storage.getBrandLogos();
+    if (logos[brand]) {
+        delete logos[brand];
+        localStorage.setItem(KEYS.BRAND_LOGOS, JSON.stringify(logos));
+    }
+
+    notifyUpdate();
+  },
+  getBrandLogos: (): Record<string, string> => {
+    const data = localStorage.getItem(KEYS.BRAND_LOGOS);
+    return data ? JSON.parse(data) : {};
+  },
+  saveBrandLogo: (brand: string, logoUrl: string) => {
+    const logos = storage.getBrandLogos();
+    logos[brand] = logoUrl;
+    localStorage.setItem(KEYS.BRAND_LOGOS, JSON.stringify(logos));
     notifyUpdate();
   },
 };

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine, Star, Cloud, Leaf, Search } from 'lucide-react';
+import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine, Star, Cloud, Leaf, Search, ArrowRightLeft } from 'lucide-react';
 import { storage } from '../../services/storage';
 import { Category, StrainType, Product, ProductWeight, ProductType } from '../../types';
 import { generateDescription, analyzeImage, removeBackground } from '../../services/gemini';
@@ -27,15 +27,17 @@ const INITIAL_FORM: Product = {
 };
 
 export const AdminInventory: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<ProductType>('Cannabis');
-  const [form, setForm] = useState<Product>(INITIAL_FORM);
+  const [activeTab, setActiveTab] = useState<ProductType>('Cannabis'); // Controls List View
+  const [form, setForm] = useState<Product>(INITIAL_FORM); // Controls Form Data
   const [brands, setBrands] = useState<string[]>([]);
+  const [brandLogos, setBrandLogos] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<string[]>([]);
   const [loadingAI, setLoadingAI] = useState(false);
   const [analyzingImage, setAnalyzingImage] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [lowStockThreshold, setLowStockThreshold] = useState(5);
   
   // Custom Category State
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -46,44 +48,54 @@ export const AdminInventory: React.FC = () => {
   const [newBrandName, setNewBrandName] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const brandLogoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const load = () => {
         setProducts(storage.getProducts());
         setCategories(storage.getCategories());
         setBrands(storage.getBrands());
+        setBrandLogos(storage.getBrandLogos());
+        const settings = storage.getSettings();
+        setLowStockThreshold(settings.inventory.lowStockThreshold);
     };
     load();
 
     window.addEventListener('hs_storage_update', load);
     window.addEventListener('storage', load);
 
-    const draft = localStorage.getItem('hs_product_draft');
-    if (draft) {
-        // setForm(JSON.parse(draft)); // Disabling auto-restore for now to prevent type conflicts
-    }
-    
     return () => {
         window.removeEventListener('hs_storage_update', load);
         window.removeEventListener('storage', load);
     };
   }, []);
 
-  // Sync Form Type with Tab
+  // Sync Form Defaults when switching List Tabs (Only if adding new)
   useEffect(() => {
-    // When switching tabs, reset defaults appropriate for that type if form is clean
     if (!form.id) {
         setForm(prev => ({
             ...prev,
             productType: activeTab,
             category: activeTab === 'Vape' ? 'Vape' : Category.FLOWER,
-            weights: activeTab === 'Vape' ? [{ label: '1pc', price: 20, weightGrams: 0, stock: 50 }] : prev.weights
+            weights: activeTab === 'Vape' ? [{ label: '1pc', price: 20, weightGrams: 0, stock: 50 }] : INITIAL_FORM.weights
         }));
     }
   }, [activeTab]);
 
   const handleChange = (field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleTypeChange = (type: ProductType) => {
+      // When manually changing type in form, update form and list context
+      setActiveTab(type);
+      setForm(prev => ({
+          ...prev,
+          productType: type,
+          // Reset relevant fields for the new type
+          category: type === 'Vape' ? 'Vape' : Category.FLOWER,
+          weights: type === 'Vape' ? [{ label: '1pc', price: 20, weightGrams: 0, stock: 50 }] : INITIAL_FORM.weights
+      }));
   };
 
   const handleWeightChange = (index: number, field: keyof ProductWeight, value: any) => {
@@ -143,10 +155,22 @@ export const AdminInventory: React.FC = () => {
     }
   };
 
+  const handleBrandLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0] && form.brand) {
+          const file = e.target.files[0];
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              const base64 = reader.result as string;
+              storage.saveBrandLogo(form.brand, base64);
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
   const performImageScan = async (base64Image: string) => {
       setAnalyzingImage(true);
-      // Pass the active product type to the AI for context
-      const analysis = await analyzeImage(base64Image, activeTab);
+      // STRICTLY use form.productType to ensure the AI knows what it's looking for
+      const analysis = await analyzeImage(base64Image, form.productType);
       setAnalyzingImage(false);
 
       if (analysis) {
@@ -155,10 +179,10 @@ export const AdminInventory: React.FC = () => {
             imageUrl: base64Image,
             brand: analysis.brand || prev.brand,
             flavor: analysis.flavor || prev.flavor,
-            // Conditionally update fields based on type
-            strain: activeTab === 'Cannabis' ? ((analysis.strain as StrainType) || prev.strain) : prev.strain,
-            thcPercentage: activeTab === 'Cannabis' ? (analysis.thcPercentage || prev.thcPercentage) : prev.thcPercentage,
-            puffCount: activeTab === 'Vape' ? (analysis.puffCount || prev.puffCount) : prev.puffCount,
+            // Conditionally update fields based on form type
+            strain: form.productType === 'Cannabis' ? ((analysis.strain as StrainType) || prev.strain) : prev.strain,
+            thcPercentage: form.productType === 'Cannabis' ? (analysis.thcPercentage || prev.thcPercentage) : prev.thcPercentage,
+            puffCount: form.productType === 'Vape' ? (analysis.puffCount || prev.puffCount) : prev.puffCount,
         }));
       }
   };
@@ -187,12 +211,12 @@ export const AdminInventory: React.FC = () => {
 
   const handleGenerateDescription = async () => {
     setLoadingAI(true);
-    // Pass type to generator
+    // STRICTLY use form.productType to generate relevant copy
     const desc = await generateDescription(
         form.brand, 
         form.flavor, 
-        activeTab === 'Vape' ? (form.puffCount + ' Puffs') : (form.strain || 'Hybrid'), 
-        activeTab
+        form.productType === 'Vape' ? (form.puffCount + ' Puffs') : (form.strain || 'Hybrid'), 
+        form.productType
     );
     handleChange('description', desc);
     setLoadingAI(false);
@@ -215,7 +239,7 @@ export const AdminInventory: React.FC = () => {
         id: form.id || Math.random().toString(36).substr(2, 9),
         stock: totalStock,
         isPublished: true,
-        productType: activeTab // Ensure correct type
+        // Product Type is already in form state
     };
     storage.saveProduct(newProduct);
     localStorage.removeItem('hs_product_draft');
@@ -228,6 +252,7 @@ export const AdminInventory: React.FC = () => {
       setForm(p);
   };
 
+  // Filter list based on tabs, but DO NOT affect the form rendering
   const filteredProducts = products.filter(p => 
       p.productType === activeTab && (
           p.flavor.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -235,33 +260,57 @@ export const AdminInventory: React.FC = () => {
       )
   );
 
+  const isVapeForm = form.productType === 'Vape';
+
   return (
     <div className="space-y-8 pb-20">
       <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-white">Inventory Master</h1>
+          
+          {/* List Filter Tabs */}
           <div className="flex bg-dark-800 rounded-lg p-1 border border-gray-700">
              <button 
                 onClick={() => setActiveTab('Cannabis')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'Cannabis' ? 'bg-cannabis-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
              >
-                 <Leaf className="w-4 h-4" /> Cannabis
+                 <Leaf className="w-4 h-4" /> Cannabis List
              </button>
              <button 
                 onClick={() => setActiveTab('Vape')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'Vape' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
              >
-                 <Cloud className="w-4 h-4" /> Vapes
+                 <Cloud className="w-4 h-4" /> Vape List
              </button>
           </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* LEFT COLUMN: THE FORM */}
-        <div className={`p-6 rounded-2xl border transition-colors space-y-6 ${activeTab === 'Vape' ? 'bg-dark-800 border-blue-900/30' : 'bg-dark-800 border-gray-700'}`}>
+        <div className={`p-6 rounded-2xl border transition-colors space-y-6 ${isVapeForm ? 'bg-dark-800 border-blue-900/30' : 'bg-dark-800 border-gray-700'}`}>
+          
           <div className="flex justify-between items-center mb-4">
-              <h2 className={`text-xl font-bold ${activeTab === 'Vape' ? 'text-blue-400' : 'text-cannabis-400'}`}>
-                  {form.id ? 'Edit' : 'Add'} {activeTab} Product
-              </h2>
+              <div className="flex items-center gap-4">
+                  <h2 className={`text-xl font-bold ${isVapeForm ? 'text-blue-400' : 'text-cannabis-400'}`}>
+                      {form.id ? 'Edit Product' : 'Add Product'}
+                  </h2>
+                  
+                  {/* Product Type Switcher - Edit Mode Enabled */}
+                  <div className="flex items-center bg-dark-900 rounded-lg p-1 border border-gray-700">
+                      <button 
+                          onClick={() => handleTypeChange('Cannabis')}
+                          className={`px-3 py-1 rounded text-xs font-bold transition-all ${!isVapeForm ? 'bg-cannabis-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                      >
+                          Flower
+                      </button>
+                      <button 
+                          onClick={() => handleTypeChange('Vape')}
+                          className={`px-3 py-1 rounded text-xs font-bold transition-all ${isVapeForm ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                      >
+                          Vape
+                      </button>
+                  </div>
+              </div>
+
               <button 
                 onClick={() => handleChange('isFeatured', !form.isFeatured)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${form.isFeatured ? 'bg-gold-500/20 text-gold-400 border-gold-500' : 'bg-dark-900 border-gray-700 text-gray-500 hover:text-gray-300'}`}
@@ -276,7 +325,7 @@ export const AdminInventory: React.FC = () => {
             <label className="text-sm font-medium text-gray-400">Product Photo</label>
             <div 
                 onClick={() => fileInputRef.current?.click()}
-                className={`relative h-64 w-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${activeTab === 'Vape' ? 'border-blue-700 hover:border-blue-500 hover:bg-blue-900/10' : 'border-gray-600 hover:border-cannabis-500 hover:bg-dark-700'}`}
+                className={`relative h-64 w-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${isVapeForm ? 'border-blue-700 hover:border-blue-500 hover:bg-blue-900/10' : 'border-gray-600 hover:border-cannabis-500 hover:bg-dark-700'}`}
             >
                 {form.imageUrl ? (
                     <>
@@ -304,7 +353,7 @@ export const AdminInventory: React.FC = () => {
                     <>
                         <Camera className="w-10 h-10 text-gray-500 mb-2" />
                         <span className="text-gray-400">Tap to Capture / Upload</span>
-                        <span className={`text-xs font-bold mt-1 flex items-center gap-1 ${activeTab === 'Vape' ? 'text-blue-400' : 'text-cannabis-500'}`}>
+                        <span className={`text-xs font-bold mt-1 flex items-center gap-1 ${isVapeForm ? 'text-blue-400' : 'text-cannabis-500'}`}>
                             <Sparkles className="w-3 h-3" /> Auto-Scan Enabled
                         </span>
                     </>
@@ -334,8 +383,8 @@ export const AdminInventory: React.FC = () => {
                                 className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
                             >
                                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                                {activeTab === 'Vape' && <option value="Vape">Vape (General)</option>}
-                                {activeTab === 'Vape' && <option value="Pod">Pod System</option>}
+                                {isVapeForm && <option value="Vape">Vape (General)</option>}
+                                {isVapeForm && <option value="Pod">Pod System</option>}
                             </select>
                             <button onClick={() => setIsAddingCategory(true)} className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300">
                                 <Plus className="w-5 h-5" />
@@ -355,11 +404,41 @@ export const AdminInventory: React.FC = () => {
                   <div className="flex gap-2">
                     {!isAddingBrand ? (
                         <>
-                            <select value={form.brand} onChange={e => handleChange('brand', e.target.value)} className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white">
-                                <option value="">Select Brand...</option>
-                                {brands.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-                            <button onClick={() => setIsAddingBrand(true)} className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300"><Plus className="w-5 h-5" /></button>
+                            <div className="relative flex-1">
+                                <select 
+                                    value={form.brand} 
+                                    onChange={e => handleChange('brand', e.target.value)} 
+                                    className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white appearance-none"
+                                >
+                                    <option value="">Select Brand...</option>
+                                    {brands.map(b => <option key={b} value={b}>{b}</option>)}
+                                </select>
+                            </div>
+
+                            {/* Brand Logo Uploader */}
+                            <div 
+                                onClick={() => form.brand && brandLogoInputRef.current?.click()}
+                                className={`w-11 h-11 rounded-lg border flex-shrink-0 flex items-center justify-center cursor-pointer overflow-hidden transition-all ${form.brand ? 'bg-dark-800 border-gray-700 hover:border-gray-500 hover:bg-dark-700' : 'bg-dark-900 border-gray-800 opacity-50 cursor-not-allowed'}`}
+                                title={form.brand ? "Upload Brand Logo" : "Select Brand First"}
+                            >
+                                {form.brand && brandLogos[form.brand] ? (
+                                    <img src={brandLogos[form.brand]} alt="Brand Logo" className="w-full h-full object-cover" />
+                                ) : (
+                                    <Upload className="w-5 h-5 text-gray-400" />
+                                )}
+                            </div>
+                            <input 
+                                type="file" 
+                                ref={brandLogoInputRef} 
+                                className="hidden" 
+                                accept="image/*"
+                                onChange={handleBrandLogoUpload} 
+                                disabled={!form.brand}
+                            />
+
+                            <button onClick={() => setIsAddingBrand(true)} className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300">
+                                <Plus className="w-5 h-5" />
+                            </button>
                         </>
                     ) : (
                         <>
@@ -379,12 +458,13 @@ export const AdminInventory: React.FC = () => {
                 value={form.flavor}
                 onChange={e => handleChange('flavor', e.target.value)}
                 className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
-                placeholder={activeTab === 'Vape' ? "e.g. Blue Razz Ice" : "e.g. Purple Haze"}
+                placeholder={isVapeForm ? "e.g. Blue Razz Ice" : "e.g. Purple Haze"}
               />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-              {activeTab === 'Cannabis' ? (
+              {/* CONDITIONAL RENDERING BASED ON FORM TYPE, NOT TAB */}
+              {!isVapeForm ? (
                   <>
                     <div>
                         <label className="block text-sm text-gray-400 mb-1">Strain Type</label>
@@ -436,7 +516,7 @@ export const AdminInventory: React.FC = () => {
                                 className="w-full bg-dark-800 border border-gray-700 rounded-lg p-2 text-white text-sm placeholder-gray-600"
                                 value={w.label}
                                 onChange={e => handleWeightChange(idx, 'label', e.target.value)}
-                                placeholder={activeTab === 'Vape' ? "e.g. 1pc" : "e.g. 3.5g"}
+                                placeholder={isVapeForm ? "e.g. 1pc" : "e.g. 3.5g"}
                             />
                         </div>
                         <div className="w-24">
@@ -472,7 +552,7 @@ export const AdminInventory: React.FC = () => {
               
               <button 
                 onClick={handleAddWeight}
-                className={`mt-4 flex items-center gap-2 text-sm font-medium transition-colors ${activeTab === 'Vape' ? 'text-blue-400' : 'text-cannabis-500'}`}
+                className={`mt-4 flex items-center gap-2 text-sm font-medium transition-colors ${isVapeForm ? 'text-blue-400' : 'text-cannabis-500'}`}
               >
                   <Plus className="w-4 h-4" /> Add Variation
               </button>
@@ -485,7 +565,7 @@ export const AdminInventory: React.FC = () => {
                 <button 
                     onClick={handleGenerateDescription}
                     disabled={!form.brand || !form.flavor}
-                    className={`text-xs flex items-center gap-1 disabled:opacity-50 ${activeTab === 'Vape' ? 'text-blue-400 hover:text-blue-300' : 'text-cannabis-400 hover:text-cannabis-300'}`}
+                    className={`text-xs flex items-center gap-1 disabled:opacity-50 ${isVapeForm ? 'text-blue-400 hover:text-blue-300' : 'text-cannabis-400 hover:text-cannabis-300'}`}
                 >
                     <Sparkles className="w-3 h-3" /> Generate with AI
                 </button>
@@ -502,8 +582,8 @@ export const AdminInventory: React.FC = () => {
             <Button variant="secondary" onClick={handleClear} className="w-1/3">
               <RotateCcw className="w-4 h-4 mr-2" /> Clear
             </Button>
-            <Button fullWidth size="lg" onClick={handleSave} className={`flex-1 ${activeTab === 'Vape' ? 'bg-blue-600 hover:bg-blue-500' : ''}`}>
-                <Save className="w-5 h-5 mr-2" /> Save {activeTab}
+            <Button fullWidth size="lg" onClick={handleSave} className={`flex-1 ${isVapeForm ? 'bg-blue-600 hover:bg-blue-500' : ''}`}>
+                <Save className="w-5 h-5 mr-2" /> Save {form.productType}
             </Button>
           </div>
 
@@ -542,11 +622,15 @@ export const AdminInventory: React.FC = () => {
                         </div>
                         <div className="text-right">
                              <div className="font-bold text-white">${p.weights[0].price}</div>
-                             <div className={`text-xs font-medium px-2 py-0.5 rounded-full mt-1 inline-flex items-center gap-1
-                                ${p.stock === 0 ? 'bg-red-900/30 text-red-400 border border-red-500/30' : 
-                                  p.stock < 10 ? 'bg-orange-900/30 text-orange-400 border border-orange-500/30' : 
-                                  'bg-green-900/30 text-green-400 border border-green-500/30'}`}>
-                                {p.stock === 0 ? 'Sold Out' : `${p.stock} Left`}
+                             <div className={`text-xs font-bold px-2 py-0.5 rounded border mt-1 inline-flex items-center gap-1
+                                ${p.stock === 0 
+                                    ? 'bg-red-900/20 text-red-400 border-red-500/30' 
+                                    : p.stock <= lowStockThreshold 
+                                        ? 'bg-yellow-900/20 text-yellow-400 border-yellow-500/30' 
+                                        : 'bg-green-900/20 text-green-400 border-green-500/30'
+                                }`}>
+                                {p.stock === 0 ? 'Out of Stock' : p.stock <= lowStockThreshold ? 'Low Stock' : 'In Stock'}
+                                <span className="opacity-70 ml-1">({p.stock})</span>
                              </div>
                         </div>
                     </div>
