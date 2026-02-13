@@ -80,6 +80,7 @@ export interface Order {
   paymentMethod: 'Cash' | 'Card' | 'Online' | 'Crypto';
   generatedReferralCode?: string;
   appliedReferralCode?: string;
+  deliveryZoneName?: string; // New: Track which zone was used
 }
 
 export interface HolidayTheme {
@@ -106,6 +107,18 @@ export interface SpecialEvent {
   enabled: boolean;
 }
 
+export interface DeliveryZone {
+  id: string;
+  name: string; // e.g. "Queens", "Brooklyn"
+  centerAddress: string; // e.g. "Astoria, NY"
+  lat: number;
+  lng: number;
+  radiusMiles: number;
+  fee: number;
+  minOrder: number;
+  active: boolean;
+}
+
 export interface StoreSettings {
   storeName: string;
   adminPin: string; 
@@ -116,7 +129,7 @@ export interface StoreSettings {
   };
   financials: {
     taxRate: number; 
-    deliveryFee: number; 
+    deliveryFee: number; // Fallback fee
     minOrderAmount: number;
     currencySymbol: string;
   };
@@ -153,6 +166,7 @@ export interface StoreSettings {
   };
   delivery: {
     enabled: boolean;
+    zones: DeliveryZone[]; // New: List of active zones
   };
   holidays: HolidayTheme[];
   specialEvents: SpecialEvent[];
@@ -205,6 +219,7 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   },
   delivery: {
     enabled: false,
+    zones: []
   },
   holidays: [], 
   specialEvents: []

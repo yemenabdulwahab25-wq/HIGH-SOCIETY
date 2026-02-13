@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Trash2, CheckCircle, CreditCard, Banknote, Bitcoin, MapPin, ShoppingBag, AlertCircle, Ticket, Copy } from 'lucide-react';
-import { CartItem, StoreSettings, OrderStatus, Order } from '../types';
+import { Trash2, CheckCircle, CreditCard, Banknote, Bitcoin, MapPin, ShoppingBag, AlertCircle, Ticket, Copy, Loader2, Navigation, Check } from 'lucide-react';
+import { CartItem, StoreSettings, OrderStatus, Order, DeliveryZone } from '../types';
 import { Button } from '../components/ui/Button';
 import { storage } from '../services/storage';
 
@@ -18,6 +18,11 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Card' | 'Online' | 'Crypto'>('Cash');
   const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', email: '' });
   
+  // Delivery Zone State
+  const [activeZone, setActiveZone] = useState<DeliveryZone | null>(null);
+  const [isCheckingLocation, setIsCheckingLocation] = useState(false);
+  const [deliveryError, setDeliveryError] = useState('');
+  
   // Promo Code State
   const [promoCode, setPromoCode] = useState('');
   const [promoError, setPromoError] = useState('');
@@ -32,12 +37,80 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
     }
   }, []);
 
+  // Distance Utility
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 3958.8; // Radius of Earth in miles
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+  };
+
+  const checkDeliveryAvailability = () => {
+      if (!settings.delivery.zones || settings.delivery.zones.length === 0) {
+          setDeliveryError("Delivery is currently unavailable.");
+          return;
+      }
+
+      setIsCheckingLocation(true);
+      setDeliveryError('');
+      setActiveZone(null);
+
+      navigator.geolocation.getCurrentPosition(
+          (position) => {
+              const userLat = position.coords.latitude;
+              const userLng = position.coords.longitude;
+              
+              let matchedZone: DeliveryZone | null = null;
+              let minFee = Infinity;
+
+              // Find active zone that covers user location
+              for (const zone of settings.delivery.zones) {
+                  if (zone.active) {
+                      const dist = calculateDistance(userLat, userLng, zone.lat, zone.lng);
+                      if (dist <= zone.radiusMiles) {
+                          // If multiple zones match, prioritize cheapest fee
+                          if (zone.fee < minFee) {
+                              minFee = zone.fee;
+                              matchedZone = zone;
+                          }
+                      }
+                  }
+              }
+
+              if (matchedZone) {
+                  if (subtotal < matchedZone.minOrder) {
+                      setDeliveryError(`Minimum order for ${matchedZone.name} delivery is $${matchedZone.minOrder}.`);
+                  } else {
+                      setActiveZone(matchedZone);
+                  }
+              } else {
+                  setDeliveryError("Sorry, we don't deliver to your current location.");
+              }
+              setIsCheckingLocation(false);
+          },
+          (error) => {
+              console.error(error);
+              setDeliveryError("Location access denied. Please enable GPS to check delivery.");
+              setIsCheckingLocation(false);
+          }
+      );
+  };
+
   // Financial Calculations
   const subtotal = cart.reduce((acc, item) => acc + (item.selectedWeight.price * item.quantity), 0);
   const discountAmount = appliedPromo ? (subtotal * (settings.referral.percentage / 100)) : 0;
   const taxableAmount = subtotal - discountAmount;
   const tax = taxableAmount * (settings.financials.taxRate / 100);
-  const deliveryFee = deliveryType === 'Delivery' ? settings.financials.deliveryFee : 0;
+  
+  // Determine delivery fee based on active zone OR default if no zones configured but delivery enabled (legacy fallback)
+  const deliveryFee = deliveryType === 'Delivery' 
+    ? (activeZone ? activeZone.fee : (settings.delivery.zones.length === 0 ? settings.financials.deliveryFee : 0)) 
+    : 0;
+    
   const total = taxableAmount + tax + deliveryFee;
   
   const isMinOrderMet = subtotal >= settings.financials.minOrderAmount;
@@ -88,6 +161,11 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
         return;
     }
 
+    if (deliveryType === 'Delivery' && settings.delivery.zones.length > 0 && !activeZone) {
+        alert("Please check delivery availability first.");
+        return;
+    }
+
     // Generate a unique referral code for this new order
     const newRefCode = `REF-${Math.random().toString(36).substr(2, 4).toUpperCase()}${Math.floor(Math.random() * 100)}`;
     setGeneratedCode(newRefCode);
@@ -107,7 +185,8 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
         type: deliveryType,
         paymentMethod,
         generatedReferralCode: newRefCode,
-        appliedReferralCode: appliedPromo || undefined
+        appliedReferralCode: appliedPromo || undefined,
+        deliveryZoneName: activeZone?.name
     };
 
     storage.saveOrder(newOrder);
@@ -181,7 +260,7 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
                   <label className="text-sm font-medium text-gray-400">Order Type</label>
                   <div className="grid grid-cols-2 gap-4">
                       <button 
-                        onClick={() => setDeliveryType('Pickup')}
+                        onClick={() => { setDeliveryType('Pickup'); setActiveZone(null); setDeliveryError(''); }}
                         className={`p-4 rounded-xl border flex flex-col items-center gap-2 ${deliveryType === 'Pickup' ? 'border-cannabis-500 bg-cannabis-500/10 text-white' : 'border-gray-700 bg-dark-800 text-gray-400'}`}
                       >
                           <ShoppingBag className="w-6 h-6" />
@@ -198,6 +277,42 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
                       )}
                   </div>
               </div>
+              
+              {/* Delivery Check Logic */}
+              {deliveryType === 'Delivery' && settings.delivery.zones.length > 0 && (
+                  <div className="bg-dark-800 p-4 rounded-xl border border-gray-700 animate-in fade-in slide-in-from-top-2">
+                       <h3 className="font-bold text-white text-sm mb-2">Check Availability</h3>
+                       {!activeZone ? (
+                           <>
+                               <Button 
+                                    fullWidth 
+                                    variant="secondary"
+                                    onClick={checkDeliveryAvailability} 
+                                    disabled={isCheckingLocation}
+                                    className="flex items-center justify-center gap-2"
+                                >
+                                   {isCheckingLocation ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
+                                   {isCheckingLocation ? 'Checking Location...' : 'Use Current Location'}
+                               </Button>
+                               {deliveryError && (
+                                   <div className="mt-3 text-red-400 text-sm flex items-center gap-2">
+                                       <AlertCircle className="w-4 h-4" /> {deliveryError}
+                                   </div>
+                               )}
+                           </>
+                       ) : (
+                           <div className="flex items-center justify-between bg-green-900/20 border border-green-500/30 p-3 rounded-lg">
+                               <div>
+                                   <div className="flex items-center gap-2 text-green-400 font-bold">
+                                       <CheckCircle className="w-4 h-4" /> Delivered from {activeZone.name}
+                                   </div>
+                                   <div className="text-xs text-gray-400 mt-1">Fee: ${activeZone.fee}</div>
+                               </div>
+                               <button onClick={() => setActiveZone(null)} className="text-gray-500 hover:text-white text-sm underline">Change</button>
+                           </div>
+                       )}
+                  </div>
+              )}
 
               {/* Customer Info */}
               <div className="space-y-4">
@@ -301,7 +416,7 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
                           <span>${tax.toFixed(2)}</span>
                       </div>
                   )}
-                  {deliveryType === 'Delivery' && settings.financials.deliveryFee > 0 && (
+                  {deliveryType === 'Delivery' && deliveryFee > 0 && (
                       <div className="flex justify-between text-gray-400 text-sm">
                           <span>Delivery Fee</span>
                           <span>${deliveryFee.toFixed(2)}</span>
@@ -312,7 +427,13 @@ export const Cart: React.FC<CartProps> = ({ cart, removeFromCart, clearCart, set
                       <span>${total.toFixed(2)}</span>
                   </div>
                   
-                  <Button fullWidth size="lg" onClick={handlePlaceOrder} className="mt-4">
+                  <Button 
+                    fullWidth 
+                    size="lg" 
+                    onClick={handlePlaceOrder} 
+                    className="mt-4"
+                    disabled={deliveryType === 'Delivery' && settings.delivery.zones.length > 0 && !activeZone}
+                  >
                       Confirm Order
                   </Button>
                   <button onClick={() => setStep('cart')} className="w-full mt-4 text-gray-500 hover:text-white">Back to Cart</button>

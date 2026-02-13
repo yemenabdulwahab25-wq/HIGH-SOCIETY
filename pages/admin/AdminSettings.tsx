@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { StoreSettings, HolidayTheme, SpecialEvent } from '../../types';
+import { StoreSettings, HolidayTheme, SpecialEvent, DeliveryZone } from '../../types';
 import { storage } from '../../services/storage';
-import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2, Megaphone, Clock, DollarSign, Settings as SettingsIcon, AlertTriangle, Power, Ticket } from 'lucide-react';
+import { getCoordinates } from '../../services/gemini';
+import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2, Megaphone, Clock, DollarSign, Settings as SettingsIcon, AlertTriangle, Power, Ticket, MapPin, Loader2 } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
 
 interface AdminSettingsProps {
   settings: StoreSettings;
@@ -14,6 +16,18 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
   const [brands, setBrands] = useState<string[]>([]);
   const [showAddHoliday, setShowAddHoliday] = useState(false);
   const [showAddEvent, setShowAddEvent] = useState(false);
+  
+  // Zone State
+  const [newZone, setNewZone] = useState<Partial<DeliveryZone>>({
+      name: '',
+      centerAddress: '',
+      radiusMiles: 5,
+      fee: 10,
+      minOrder: 0,
+      active: true
+  });
+  const [isAddingZone, setIsAddingZone] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
   
   // New Holiday Form State
   const [newHoliday, setNewHoliday] = useState<Partial<HolidayTheme>>({
@@ -71,6 +85,44 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
       };
       storage.saveSettings(newSettings);
       onUpdate(newSettings);
+  };
+
+  const handleAddZone = async () => {
+      if (!newZone.name || !newZone.centerAddress) return;
+      
+      setIsGeocoding(true);
+      // Use AI to get coordinates for the address
+      const coords = await getCoordinates(newZone.centerAddress);
+      setIsGeocoding(false);
+
+      if (!coords) {
+          alert("Could not find coordinates for this address. Please try a more specific address or city.");
+          return;
+      }
+
+      const zone: DeliveryZone = {
+          id: Math.random().toString(36).substr(2, 9),
+          name: newZone.name,
+          centerAddress: newZone.centerAddress,
+          lat: coords.lat,
+          lng: coords.lng,
+          radiusMiles: Number(newZone.radiusMiles) || 5,
+          fee: Number(newZone.fee) || 0,
+          minOrder: Number(newZone.minOrder) || 0,
+          active: true
+      };
+
+      const updatedZones = [...(settings.delivery.zones || []), zone];
+      updateSetting('delivery', 'zones', updatedZones);
+      setIsAddingZone(false);
+      setNewZone({ name: '', centerAddress: '', radiusMiles: 5, fee: 10, minOrder: 0, active: true });
+  };
+
+  const handleDeleteZone = (id: string) => {
+      if (window.confirm("Delete this delivery zone?")) {
+          const updatedZones = settings.delivery.zones.filter(z => z.id !== id);
+          updateSetting('delivery', 'zones', updatedZones);
+      }
   };
 
   const handleAddHoliday = () => {
@@ -229,7 +281,88 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
           </div>
       </section>
 
-      {/* 3. Financials */}
+      {/* 3. Delivery Configuration */}
+      <section className="bg-dark-800 rounded-xl p-6 border border-gray-700 relative overflow-hidden">
+          <div className="flex items-center justify-between mb-4">
+               <div className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-cannabis-500" />
+                  <h2 className="text-xl font-bold text-white text-cannabis-400">Delivery Zones</h2>
+              </div>
+              <button 
+                onClick={() => setIsAddingZone(!isAddingZone)}
+                className="flex items-center gap-1 text-xs bg-dark-700 hover:bg-dark-600 px-3 py-1.5 rounded-lg text-white transition-colors"
+              >
+                  <Plus className="w-4 h-4" /> Add Zone
+              </button>
+          </div>
+
+          <Toggle 
+            label="Enable Delivery" 
+            checked={settings.delivery.enabled} 
+            onChange={(v) => updateSetting('delivery', 'enabled', v)} 
+          />
+
+          <p className="text-sm text-gray-400 mt-4 mb-4">
+              Define delivery areas by radius. The app will verify if the customer is within these zones before allowing delivery.
+          </p>
+
+          {isAddingZone && (
+              <div className="bg-dark-900 p-4 rounded-xl border border-gray-700 mb-4 animate-in fade-in slide-in-from-top-2">
+                   <div className="grid md:grid-cols-2 gap-4 mb-3">
+                       <div>
+                           <label className="text-xs text-gray-500 block mb-1">Zone Name</label>
+                           <input className="w-full bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm" value={newZone.name} onChange={e => setNewZone({...newZone, name: e.target.value})} placeholder="e.g. Queens" />
+                       </div>
+                       <div>
+                           <label className="text-xs text-gray-500 block mb-1">Center Address</label>
+                           <input className="w-full bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm" value={newZone.centerAddress} onChange={e => setNewZone({...newZone, centerAddress: e.target.value})} placeholder="e.g. Astoria, Queens, NY" />
+                       </div>
+                   </div>
+                   <div className="grid grid-cols-3 gap-4 mb-4">
+                       <div>
+                           <label className="text-xs text-gray-500 block mb-1">Radius (Miles)</label>
+                           <input type="number" className="w-full bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm" value={newZone.radiusMiles} onChange={e => setNewZone({...newZone, radiusMiles: Number(e.target.value)})} />
+                       </div>
+                       <div>
+                           <label className="text-xs text-gray-500 block mb-1">Fee ($)</label>
+                           <input type="number" className="w-full bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm" value={newZone.fee} onChange={e => setNewZone({...newZone, fee: Number(e.target.value)})} />
+                       </div>
+                       <div>
+                           <label className="text-xs text-gray-500 block mb-1">Min Order ($)</label>
+                           <input type="number" className="w-full bg-dark-800 border border-gray-600 rounded p-2 text-white text-sm" value={newZone.minOrder} onChange={e => setNewZone({...newZone, minOrder: Number(e.target.value)})} />
+                       </div>
+                   </div>
+                   <Button onClick={handleAddZone} fullWidth disabled={isGeocoding}>
+                       {isGeocoding ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Locating...</> : 'Save Zone'}
+                   </Button>
+              </div>
+          )}
+
+          <div className="space-y-3">
+               {settings.delivery.zones?.map(zone => (
+                   <div key={zone.id} className="bg-dark-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+                       <div>
+                           <div className="font-bold text-white text-sm flex items-center gap-2">
+                               {zone.name}
+                               <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded border border-blue-500/30">
+                                   {zone.radiusMiles}m Radius
+                               </span>
+                           </div>
+                           <div className="text-xs text-gray-500 mt-1">{zone.centerAddress}</div>
+                           <div className="text-xs text-gray-400 mt-1">Fee: ${zone.fee} • Min Order: ${zone.minOrder}</div>
+                       </div>
+                       <button onClick={() => handleDeleteZone(zone.id)} className="text-gray-500 hover:text-red-500 transition-colors">
+                           <Trash2 className="w-4 h-4" />
+                       </button>
+                   </div>
+               ))}
+               {(!settings.delivery.zones || settings.delivery.zones.length === 0) && (
+                   <div className="text-center py-4 text-gray-500 text-sm">No delivery zones configured.</div>
+               )}
+          </div>
+      </section>
+
+      {/* 4. Financials */}
       <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
           <div className="flex items-center gap-2 mb-4">
               <DollarSign className="w-5 h-5 text-cannabis-500" />
@@ -243,11 +376,6 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
                       value={settings.financials.taxRate} onChange={(e) => updateSetting('financials', 'taxRate', Number(e.target.value))} />
                </div>
                <div>
-                   <label className="text-sm text-gray-400 mb-1 block">Delivery Fee ($)</label>
-                   <input type="number" className="w-full bg-dark-900 border border-gray-700 rounded-lg p-3 text-white" 
-                      value={settings.financials.deliveryFee} onChange={(e) => updateSetting('financials', 'deliveryFee', Number(e.target.value))} />
-               </div>
-               <div>
                    <label className="text-sm text-gray-400 mb-1 block">Min Order ($)</label>
                    <input type="number" className="w-full bg-dark-900 border border-gray-700 rounded-lg p-3 text-white" 
                       value={settings.financials.minOrderAmount} onChange={(e) => updateSetting('financials', 'minOrderAmount', Number(e.target.value))} />
@@ -255,7 +383,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
           </div>
       </section>
 
-      {/* 4. Referral Program */}
+      {/* 5. Referral Program */}
       <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
           <div className="flex items-center gap-2 mb-4">
               <Ticket className="w-5 h-5 text-cannabis-500" />
@@ -288,7 +416,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
           )}
       </section>
 
-      {/* 5. Inventory Alerts */}
+      {/* 6. Inventory Alerts */}
       <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
           <div className="flex items-center gap-2 mb-4">
               <AlertTriangle className="w-5 h-5 text-cannabis-500" />
@@ -305,7 +433,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
           </div>
       </section>
 
-      {/* 6. System & Security */}
+      {/* 7. System & Security */}
       <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
            <div className="flex items-center gap-2 mb-4">
               <Lock className="w-5 h-5 text-cannabis-500" />
@@ -634,11 +762,6 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
             label="Show Map on Storefront" 
             checked={settings.visibility.showMap} 
             onChange={(v) => updateSetting('visibility', 'showMap', v)} 
-          />
-          <Toggle 
-            label="Enable Delivery" 
-            checked={settings.delivery.enabled} 
-            onChange={(v) => updateSetting('delivery', 'enabled', v)} 
           />
       </section>
 

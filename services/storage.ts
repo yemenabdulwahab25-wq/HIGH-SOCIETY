@@ -179,7 +179,11 @@ export const storage = {
         referral: { ...DEFAULT_SETTINGS.referral, ...(saved.referral || {}) },
         messages: { ...DEFAULT_SETTINGS.messages, ...(saved.messages || {}) },
         visibility: { ...DEFAULT_SETTINGS.visibility, ...(saved.visibility || {}) },
-        delivery: { ...DEFAULT_SETTINGS.delivery, ...(saved.delivery || {}) },
+        delivery: { 
+            ...DEFAULT_SETTINGS.delivery, 
+            ...(saved.delivery || {}),
+            zones: saved.delivery?.zones || [] // Ensure zones array exists
+        },
         holidays: saved.holidays && saved.holidays.length > 0 ? saved.holidays : DEFAULT_HOLIDAYS,
         specialEvents: saved.specialEvents || []
     };

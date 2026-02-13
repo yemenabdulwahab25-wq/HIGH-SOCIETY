@@ -174,6 +174,27 @@ export const removeBackground = async (base64Image: string): Promise<string | nu
     }
 }
 
+export const getCoordinates = async (address: string): Promise<{lat: number, lng: number} | null> => {
+    if (!apiKey) return null;
+    try {
+        const model = 'gemini-3-flash-preview';
+        const prompt = `Return the approximate latitude and longitude for this address or city: "${address}". 
+        Return JSON format ONLY: {"lat": number, "lng": number}. 
+        Example: {"lat": 40.7128, "lng": -74.0060}`;
+
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: { responseMimeType: 'application/json' }
+        });
+        
+        return response.text ? JSON.parse(response.text) : null;
+    } catch (e) {
+        console.error("Geocoding failed", e);
+        return null;
+    }
+};
+
 // Virtual Assistant Chat Initialization
 export const initBudtenderChat = (inventory: Product[]): Chat | null => {
     if (!apiKey) return null;
