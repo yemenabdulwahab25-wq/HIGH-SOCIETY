@@ -237,6 +237,42 @@ export const removeBackground = async (base64Image: string): Promise<string | nu
     }
 }
 
+export const enhanceImage = async (base64Image: string): Promise<string | null> => {
+    if (!apiKey) return null;
+    try {
+        const model = 'gemini-2.5-flash-image';
+        const match = base64Image.match(/^data:(image\/[a-z]+);base64,(.+)$/);
+        if (!match) return null;
+
+        const mimeType = match[1];
+        const data = match[2];
+
+        const prompt = "Enhance this product image for a luxury e-commerce store. Improve lighting, increase sharpness, and correct colors to make the product pop. Keep the background neutral if possible or transparent. High resolution, professional finish.";
+
+        const response = await ai.models.generateContent({
+            model,
+            contents: {
+                parts: [
+                    { inlineData: { mimeType, data } },
+                    { text: prompt }
+                ]
+            }
+        });
+
+        if (response.candidates?.[0]?.content?.parts) {
+             for (const part of response.candidates[0].content.parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    return `data:image/png;base64,${part.inlineData.data}`;
+                }
+             }
+        }
+        return null;
+    } catch (e) {
+        console.error("Image enhancement failed", e);
+        return null;
+    }
+}
+
 export const getCoordinates = async (address: string): Promise<{lat: number, lng: number} | null> => {
     if (!apiKey) return null;
     try {

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine, Star, Cloud, Leaf, Search, ArrowRightLeft, Mail, Send } from 'lucide-react';
 import { storage } from '../../services/storage';
 import { Category, StrainType, Product, ProductWeight, ProductType } from '../../types';
-import { generateDescription, analyzeImage, removeBackground, generateMarketingEmail } from '../../services/gemini';
+import { generateDescription, analyzeImage, removeBackground, enhanceImage, generateMarketingEmail } from '../../services/gemini';
 import { Button } from '../../components/ui/Button';
 
 // Default Form State
@@ -40,6 +40,7 @@ export const AdminInventory: React.FC = () => {
   const [loadingAI, setLoadingAI] = useState(false);
   const [analyzingImage, setAnalyzingImage] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
+  const [enhancingImage, setEnhancingImage] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [lowStockThreshold, setLowStockThreshold] = useState(5);
@@ -236,6 +237,21 @@ export const AdminInventory: React.FC = () => {
       }
   };
 
+  const handleEnhanceImage = async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!form.imageUrl) return;
+
+      setEnhancingImage(true);
+      const newImage = await enhanceImage(form.imageUrl);
+      setEnhancingImage(false);
+
+      if (newImage) {
+          handleChange('imageUrl', newImage);
+      } else {
+          alert("Could not enhance image. Try again.");
+      }
+  };
+
   const handleGenerateDescription = async () => {
     setLoadingAI(true);
     // STRICTLY use form.productType to generate relevant copy
@@ -402,6 +418,14 @@ export const AdminInventory: React.FC = () => {
                             >
                                 <Wand2 className={`w-3.5 h-3.5 ${removingBg ? 'animate-spin text-gray-400' : 'text-blue-400'}`} />
                                 {removingBg ? 'Fixing...' : 'Remove BG'}
+                            </button>
+                            <button
+                                onClick={handleEnhanceImage}
+                                disabled={enhancingImage}
+                                className="flex items-center gap-1.5 bg-dark-900/90 hover:bg-dark-800 text-white text-xs font-medium py-1.5 px-3 rounded-lg border border-gray-600 backdrop-blur-md transition-all shadow-xl"
+                            >
+                                <Sparkles className={`w-3.5 h-3.5 ${enhancingImage ? 'animate-spin text-yellow-400' : 'text-gold-400'}`} />
+                                {enhancingImage ? 'Polishing...' : 'Enhance'}
                             </button>
                         </div>
                     </>
