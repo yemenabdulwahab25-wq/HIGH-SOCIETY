@@ -13,6 +13,8 @@ export enum Category {
   EDIBLE = 'Edible',
   CONCENTRATE = 'Concentrate',
   ACCESSORY = 'Accessory',
+  VAPE = 'Vape', // Generic Vape category
+  POD = 'Pod',
 }
 
 export enum OrderStatus {
@@ -30,20 +32,24 @@ export interface ProductWeight {
   stock: number;
 }
 
+export type ProductType = 'Cannabis' | 'Vape';
+
 export interface Product {
   id: string;
+  productType: ProductType; // New: Distinguish between Cannabis and Vape
   category: string;
   brand: string;
   flavor: string;
-  strain: StrainType;
-  thcPercentage: number;
+  strain?: StrainType; // Optional for Vapes
+  thcPercentage?: number; // Optional for Vapes
   cbdPercentage?: number;
+  puffCount?: number; // New: Specific for Vapes
   weights: ProductWeight[];
-  stock: number; // Total stock (sum of weights)
+  stock: number; 
   imageUrl: string;
   description: string;
   isPublished: boolean;
-  isFeatured?: boolean; // New field for Carousel
+  isFeatured?: boolean; 
 }
 
 export interface CartItem extends Product {
@@ -59,26 +65,26 @@ export interface Order {
   subtotal: number;
   tax: number;
   deliveryFee: number;
-  discountAmount?: number;      // New: Discount value
+  discountAmount?: number;
   total: number;
   status: OrderStatus;
   timestamp: number;
   type: 'Pickup' | 'Delivery';
   paymentMethod: 'Cash' | 'Card' | 'Online' | 'Crypto';
-  generatedReferralCode?: string; // New: Code created by this order
-  appliedReferralCode?: string;   // New: Code used in this order
+  generatedReferralCode?: string;
+  appliedReferralCode?: string;
 }
 
 export interface HolidayTheme {
   id: string;
   name: string;
-  month: number; // 1-12
-  day: number;   // 1-31
+  month: number; 
+  day: number;   
   colors: {
-    primary: string; // Replaces cannabis-500/600
-    accent: string;  // Replaces gold-400/500
+    primary: string; 
+    accent: string;  
   };
-  icon: string; // Emoji or short text
+  icon: string; 
   enabled: boolean;
 }
 
@@ -86,8 +92,8 @@ export interface SpecialEvent {
   id: string;
   title: string;
   message: string;
-  startDate: string; // YYYY-MM-DD
-  endDate: string;   // YYYY-MM-DD
+  startDate: string; 
+  endDate: string;   
   backgroundColor: string;
   textColor: string;
   enabled: boolean;
@@ -95,23 +101,23 @@ export interface SpecialEvent {
 
 export interface StoreSettings {
   storeName: string;
-  adminPin: string; // Security
-  maintenanceMode: boolean; // System
+  adminPin: string; 
+  maintenanceMode: boolean; 
   access: {
     enabled: boolean;
     code: string;
   };
   financials: {
-    taxRate: number; // Percentage
-    deliveryFee: number; // Fixed amount
+    taxRate: number; 
+    deliveryFee: number; 
     minOrderAmount: number;
     currencySymbol: string;
   };
   hours: {
     enabled: boolean;
-    openTime: string; // "09:00"
-    closeTime: string; // "22:00"
-    closedDays: number[]; // 0 = Sunday, 1 = Monday, etc.
+    openTime: string; 
+    closeTime: string; 
+    closedDays: number[]; 
   };
   inventory: {
     lowStockThreshold: number;
@@ -126,7 +132,7 @@ export interface StoreSettings {
     enabled: boolean;
     pointsPerDollar: number;
   };
-  referral: { // New Section
+  referral: { 
     enabled: boolean;
     percentage: number;
   };

@@ -15,6 +15,7 @@ const KEYS = {
 const INITIAL_PRODUCTS: Product[] = [
   {
     id: '1',
+    productType: 'Cannabis',
     category: Category.FLOWER,
     brand: 'MoonRocks',
     flavor: 'Galactic Gas',
@@ -32,6 +33,7 @@ const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: '2',
+    productType: 'Cannabis',
     category: Category.EDIBLE,
     brand: 'YumYum',
     flavor: 'Blueberry Blast',
@@ -46,6 +48,7 @@ const INITIAL_PRODUCTS: Product[] = [
   },
     {
     id: '3',
+    productType: 'Cannabis',
     category: Category.DISPOSABLE,
     brand: 'Cloud9',
     flavor: 'Mango Haze',
@@ -57,6 +60,20 @@ const INITIAL_PRODUCTS: Product[] = [
     description: 'Tropical mango vibes for an uplifting day.',
     isPublished: true,
     isFeatured: false,
+  },
+  {
+    id: '4',
+    productType: 'Vape',
+    category: 'Vape',
+    brand: 'ElfBar',
+    flavor: 'Blue Razz Ice',
+    puffCount: 5000,
+    weights: [{ label: '1pc', price: 20, weightGrams: 0, stock: 50 }],
+    stock: 50,
+    imageUrl: 'https://picsum.photos/400/400?random=4',
+    description: 'Refreshing blue raspberry with a cool menthol finish. 5000 puffs.',
+    isPublished: true,
+    isFeatured: true,
   }
 ];
 
@@ -106,7 +123,13 @@ const notifyUpdate = () => {
 export const storage = {
   getProducts: (): Product[] => {
     const data = localStorage.getItem(KEYS.PRODUCTS);
-    return data ? JSON.parse(data) : INITIAL_PRODUCTS;
+    let products = data ? JSON.parse(data) : INITIAL_PRODUCTS;
+    // Migration helper: ensure productType exists
+    products = products.map((p: any) => ({
+        ...p,
+        productType: p.productType || 'Cannabis'
+    }));
+    return products;
   },
   saveProduct: (product: Product) => {
     const products = storage.getProducts();
@@ -184,7 +207,7 @@ export const storage = {
   },
   getBrands: (): string[] => {
     const data = localStorage.getItem(KEYS.BRANDS);
-    return data ? JSON.parse(data) : ['MoonRocks', 'YumYum', 'Cloud9', 'Cookies', 'Jungle Boys'];
+    return data ? JSON.parse(data) : ['MoonRocks', 'YumYum', 'Cloud9', 'Cookies', 'Jungle Boys', 'ElfBar', 'GeekBar'];
   },
   saveBrand: (brand: string) => {
     const brands = storage.getBrands();

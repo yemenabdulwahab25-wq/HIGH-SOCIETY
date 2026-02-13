@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Minus, Plus, Share2, ShieldCheck, Zap } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Share2, ShieldCheck, Zap, Cloud } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Product } from '../types';
 import { Button } from '../components/ui/Button';
@@ -79,18 +80,27 @@ export const ProductDetails: React.FC<ProductDetailsProps> = ({ addToCart }) => 
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 leading-tight">{product.flavor}</h1>
             
             <div className="flex flex-wrap gap-3">
-               <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 border ${
-                  product.strain === 'Indica' ? 'bg-purple-900/30 text-purple-300 border-purple-500/30' :
-                  product.strain === 'Sativa' ? 'bg-orange-900/30 text-orange-300 border-orange-500/30' :
-                  'bg-emerald-900/30 text-emerald-300 border-emerald-500/30'
-               }`}>
-                  <Zap className="w-3 h-3" />
-                  {product.strain}
-               </span>
-               <span className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-dark-800 text-cannabis-400 border border-cannabis-500/20 flex items-center gap-2">
-                  <ShieldCheck className="w-3 h-3" />
-                  {product.thcPercentage}% THC
-               </span>
+               {product.productType === 'Vape' ? (
+                   <span className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-blue-900/30 text-blue-300 border border-blue-500/30 flex items-center gap-2">
+                       <Cloud className="w-3 h-3" />
+                       {product.puffCount} Puffs
+                   </span>
+               ) : (
+                   <>
+                       <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 border ${
+                          product.strain === 'Indica' ? 'bg-purple-900/30 text-purple-300 border-purple-500/30' :
+                          product.strain === 'Sativa' ? 'bg-orange-900/30 text-orange-300 border-orange-500/30' :
+                          'bg-emerald-900/30 text-emerald-300 border-emerald-500/30'
+                       }`}>
+                          <Zap className="w-3 h-3" />
+                          {product.strain}
+                       </span>
+                       <span className="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-dark-800 text-cannabis-400 border border-cannabis-500/20 flex items-center gap-2">
+                          <ShieldCheck className="w-3 h-3" />
+                          {product.thcPercentage}% THC
+                       </span>
+                   </>
+               )}
             </div>
           </div>
 

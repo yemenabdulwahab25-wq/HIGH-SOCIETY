@@ -1,30 +1,34 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine, Star } from 'lucide-react';
+import { Camera, Upload, Sparkles, Save, X, Wand2, RotateCcw, Plus, Check, Trash2, ScanLine, Star, Cloud, Leaf } from 'lucide-react';
 import { storage } from '../../services/storage';
-import { Category, StrainType, Product, ProductWeight } from '../../types';
+import { Category, StrainType, Product, ProductWeight, ProductType } from '../../types';
 import { generateDescription, analyzeImage, removeBackground } from '../../services/gemini';
 import { Button } from '../../components/ui/Button';
 
 // Default Form State
-const INITIAL_FORM = {
+const INITIAL_FORM: Product = {
   id: '',
+  productType: 'Cannabis',
   category: Category.FLOWER,
   brand: '',
   flavor: '',
   strain: StrainType.HYBRID,
   thcPercentage: 20,
+  puffCount: 5000,
   stock: 0,
   imageUrl: '',
   description: '',
   isFeatured: false,
+  isPublished: true,
   weights: [
     { label: '3.5g', price: 40, weightGrams: 3.5, stock: 10 },
   ]
 };
 
 export const AdminInventory: React.FC = () => {
-  const [form, setForm] = useState(INITIAL_FORM);
+  const [activeTab, setActiveTab] = useState<ProductType>('Cannabis');
+  const [form, setForm] = useState<Product>(INITIAL_FORM);
   const [brands, setBrands] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loadingAI, setLoadingAI] = useState(false);
@@ -50,14 +54,12 @@ export const AdminInventory: React.FC = () => {
     };
     load();
 
-    // Listen for updates
     window.addEventListener('hs_storage_update', load);
     window.addEventListener('storage', load);
 
-    // Recover unsaved work
     const draft = localStorage.getItem('hs_product_draft');
     if (draft) {
-        setForm(JSON.parse(draft));
+        // setForm(JSON.parse(draft)); // Disabling auto-restore for now to prevent type conflicts
     }
     
     return () => {
@@ -66,18 +68,18 @@ export const AdminInventory: React.FC = () => {
     };
   }, []);
 
-  // Autosave Draft
+  // Sync Form Type with Tab
   useEffect(() => {
-    localStorage.setItem('hs_product_draft', JSON.stringify(form));
-  }, [form]);
-
-  // Sync Total Stock
-  useEffect(() => {
-      const totalStock = form.weights.reduce((acc, w) => acc + (Number(w.stock) || 0), 0);
-      if (totalStock !== form.stock) {
-          setForm(prev => ({ ...prev, stock: totalStock }));
-      }
-  }, [form.weights]);
+    // When switching tabs, reset defaults appropriate for that type if form is clean
+    if (!form.id) {
+        setForm(prev => ({
+            ...prev,
+            productType: activeTab,
+            category: activeTab === 'Vape' ? 'Vape' : Category.FLOWER,
+            weights: activeTab === 'Vape' ? [{ label: '1pc', price: 20, weightGrams: 0, stock: 50 }] : prev.weights
+        }));
+    }
+  }, [activeTab]);
 
   const handleChange = (field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -132,11 +134,7 @@ export const AdminInventory: React.FC = () => {
       
       reader.onloadend = async () => {
         const base64 = reader.result as string;
-        
-        // 1. Set Image immediately
         handleChange('imageUrl', base64);
-        
-        // 2. Trigger AI Analysis
         performImageScan(base64);
       };
       
@@ -146,17 +144,20 @@ export const AdminInventory: React.FC = () => {
 
   const performImageScan = async (base64Image: string) => {
       setAnalyzingImage(true);
-      const analysis = await analyzeImage(base64Image);
+      // Pass the active product type to the AI for context
+      const analysis = await analyzeImage(base64Image, activeTab);
       setAnalyzingImage(false);
 
       if (analysis) {
         setForm(prev => ({
             ...prev,
-            imageUrl: base64Image, // Ensure image stays
+            imageUrl: base64Image,
             brand: analysis.brand || prev.brand,
             flavor: analysis.flavor || prev.flavor,
-            strain: (analysis.strain as StrainType) || prev.strain,
-            thcPercentage: analysis.thcPercentage || prev.thcPercentage
+            // Conditionally update fields based on type
+            strain: activeTab === 'Cannabis' ? ((analysis.strain as StrainType) || prev.strain) : prev.strain,
+            thcPercentage: activeTab === 'Cannabis' ? (analysis.thcPercentage || prev.thcPercentage) : prev.thcPercentage,
+            puffCount: activeTab === 'Vape' ? (analysis.puffCount || prev.puffCount) : prev.puffCount,
         }));
       }
   };
@@ -169,7 +170,7 @@ export const AdminInventory: React.FC = () => {
   };
 
   const handleRemoveBg = async (e: React.MouseEvent) => {
-      e.stopPropagation(); // Prevent file input trigger
+      e.stopPropagation();
       if (!form.imageUrl) return;
       
       setRemovingBg(true);
@@ -185,57 +186,80 @@ export const AdminInventory: React.FC = () => {
 
   const handleGenerateDescription = async () => {
     setLoadingAI(true);
-    const desc = await generateDescription(form.brand, form.flavor, form.strain);
+    // Pass type to generator
+    const desc = await generateDescription(
+        form.brand, 
+        form.flavor, 
+        activeTab === 'Vape' ? (form.puffCount + ' Puffs') : (form.strain || 'Hybrid'), 
+        activeTab
+    );
     handleChange('description', desc);
     setLoadingAI(false);
   };
 
   const handleClear = () => {
-    if (window.confirm("Are you sure you want to clear the form? Unsaved changes will be lost.")) {
-      setForm({ ...INITIAL_FORM, id: '' });
-      localStorage.removeItem('hs_product_draft');
+    if (window.confirm("Are you sure you want to clear the form?")) {
+      setForm({ ...INITIAL_FORM, id: '', productType: activeTab });
     }
   };
 
   const handleSave = () => {
-    // Basic validation
     if (!form.brand || !form.flavor) {
         alert("Brand and Flavor are required.");
         return;
     }
-
+    const totalStock = form.weights.reduce((acc, w) => acc + (Number(w.stock) || 0), 0);
     const newProduct: Product = {
         ...form,
         id: form.id || Math.random().toString(36).substr(2, 9),
-        isPublished: true
+        stock: totalStock,
+        isPublished: true,
+        productType: activeTab // Ensure correct type
     };
     storage.saveProduct(newProduct);
     localStorage.removeItem('hs_product_draft');
-    setForm({ ...INITIAL_FORM, id: '' }); // Reset
+    setForm({ ...INITIAL_FORM, id: '', productType: activeTab }); 
     alert("Product Saved Successfully!");
+  };
+
+  const handleEdit = (p: Product) => {
+      setActiveTab(p.productType);
+      setForm(p);
   };
 
   return (
     <div className="space-y-8 pb-20">
       <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold text-white">Inventory Master</h1>
-          <div className="text-xs text-green-500 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              Autosave Active
+          <div className="flex bg-dark-800 rounded-lg p-1 border border-gray-700">
+             <button 
+                onClick={() => setActiveTab('Cannabis')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'Cannabis' ? 'bg-cannabis-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+             >
+                 <Leaf className="w-4 h-4" /> Cannabis
+             </button>
+             <button 
+                onClick={() => setActiveTab('Vape')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'Vape' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+             >
+                 <Cloud className="w-4 h-4" /> Vapes
+             </button>
           </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* LEFT COLUMN: THE FORM */}
-        <div className="bg-dark-800 p-6 rounded-2xl border border-gray-700 space-y-6">
+        <div className={`p-6 rounded-2xl border transition-colors space-y-6 ${activeTab === 'Vape' ? 'bg-dark-800 border-blue-900/30' : 'bg-dark-800 border-gray-700'}`}>
           <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-white">Add / Edit Product</h2>
+              <h2 className={`text-xl font-bold ${activeTab === 'Vape' ? 'text-blue-400' : 'text-cannabis-400'}`}>
+                  {form.id ? 'Edit' : 'Add'} {activeTab} Product
+              </h2>
               <button 
                 onClick={() => handleChange('isFeatured', !form.isFeatured)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${form.isFeatured ? 'bg-gold-500/20 text-gold-400 border-gold-500' : 'bg-dark-900 border-gray-700 text-gray-500 hover:text-gray-300'}`}
               >
                   <Star className={`w-4 h-4 ${form.isFeatured ? 'fill-gold-400' : ''}`} />
-                  <span className="text-sm font-bold">Feature on Homepage</span>
+                  <span className="text-sm font-bold">Feature</span>
               </button>
           </div>
           
@@ -244,19 +268,16 @@ export const AdminInventory: React.FC = () => {
             <label className="text-sm font-medium text-gray-400">Product Photo</label>
             <div 
                 onClick={() => fileInputRef.current?.click()}
-                className="relative h-64 w-full border-2 border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-cannabis-500 hover:bg-dark-700 transition-all overflow-hidden group"
+                className={`relative h-64 w-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${activeTab === 'Vape' ? 'border-blue-700 hover:border-blue-500 hover:bg-blue-900/10' : 'border-gray-600 hover:border-cannabis-500 hover:bg-dark-700'}`}
             >
                 {form.imageUrl ? (
                     <>
                         <img src={form.imageUrl} className="w-full h-full object-contain bg-dark-950" alt="Preview" />
-                        
-                        {/* Floating Action Buttons */}
                          <div className="absolute top-3 right-3 flex flex-col gap-2 z-30" onClick={(e) => e.stopPropagation()}>
                              <button
                                 onClick={handleManualScan}
                                 disabled={analyzingImage}
                                 className="flex items-center gap-1.5 bg-dark-900/90 hover:bg-dark-800 text-white text-xs font-medium py-1.5 px-3 rounded-lg border border-gray-600 backdrop-blur-md transition-all shadow-xl"
-                                title="Analyze Image Info"
                             >
                                 <ScanLine className={`w-3.5 h-3.5 ${analyzingImage ? 'animate-pulse text-cannabis-400' : 'text-cannabis-500'}`} />
                                 {analyzingImage ? 'Scanning...' : 'AI Scan'}
@@ -265,56 +286,34 @@ export const AdminInventory: React.FC = () => {
                                 onClick={handleRemoveBg}
                                 disabled={removingBg}
                                 className="flex items-center gap-1.5 bg-dark-900/90 hover:bg-dark-800 text-white text-xs font-medium py-1.5 px-3 rounded-lg border border-gray-600 backdrop-blur-md transition-all shadow-xl"
-                                title="Remove Background with AI"
                             >
                                 <Wand2 className={`w-3.5 h-3.5 ${removingBg ? 'animate-spin text-gray-400' : 'text-blue-400'}`} />
                                 {removingBg ? 'Fixing...' : 'Remove BG'}
                             </button>
-                        </div>
-
-                        {/* Hover Overlay for Change Photo */}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
-                            <span className="text-white font-medium flex items-center gap-2 bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm"><Camera className="w-4 h-4"/> Change Photo</span>
                         </div>
                     </>
                 ) : (
                     <>
                         <Camera className="w-10 h-10 text-gray-500 mb-2" />
                         <span className="text-gray-400">Tap to Capture / Upload</span>
-                        <span className="text-xs text-cannabis-500 font-bold mt-1 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Auto-Scan Enabled</span>
+                        <span className={`text-xs font-bold mt-1 flex items-center gap-1 ${activeTab === 'Vape' ? 'text-blue-400' : 'text-cannabis-500'}`}>
+                            <Sparkles className="w-3 h-3" /> Auto-Scan Enabled
+                        </span>
                     </>
                 )}
                 
                 <input 
                     type="file" 
                     accept="image/*" 
-                    capture="environment" // Forces camera on mobile
+                    capture="environment" 
                     ref={fileInputRef} 
                     className="hidden" 
                     onChange={handleImageUpload}
                 />
-                
-                {analyzingImage && (
-                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-40">
-                        <div className="text-cannabis-500 font-bold animate-pulse flex flex-col items-center">
-                            <Sparkles className="w-8 h-8 mb-2 animate-spin" />
-                            AI Scanning Info...
-                        </div>
-                    </div>
-                )}
-
-                {removingBg && (
-                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-40">
-                         <div className="text-blue-400 font-bold animate-pulse flex flex-col items-center">
-                            <Wand2 className="w-8 h-8 mb-2 animate-bounce" />
-                            Removing Background...
-                        </div>
-                    </div>
-                )}
             </div>
           </div>
 
-          {/* Core Fields */}
+          {/* Core Fields - Dynamic based on Type */}
           <div className="grid grid-cols-2 gap-4">
               <div>
                   <label className="block text-sm text-gray-400 mb-1">Category</label>
@@ -327,37 +326,18 @@ export const AdminInventory: React.FC = () => {
                                 className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
                             >
                                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                {activeTab === 'Vape' && <option value="Vape">Vape (General)</option>}
+                                {activeTab === 'Vape' && <option value="Pod">Pod System</option>}
                             </select>
-                            <button 
-                                onClick={() => setIsAddingCategory(true)}
-                                className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300 transition-colors"
-                                title="Add New Category"
-                            >
+                            <button onClick={() => setIsAddingCategory(true)} className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300">
                                 <Plus className="w-5 h-5" />
                             </button>
                         </>
                     ) : (
                         <>
-                            <input 
-                                type="text"
-                                value={newCategoryName}
-                                onChange={(e) => setNewCategoryName(e.target.value)}
-                                placeholder="New Cat"
-                                className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white focus:border-cannabis-500 outline-none"
-                                autoFocus
-                            />
-                            <button 
-                                onClick={handleAddCategory}
-                                className="p-2.5 bg-cannabis-600 rounded-lg hover:bg-cannabis-500 text-white transition-colors"
-                            >
-                                <Check className="w-5 h-5" />
-                            </button>
-                            <button 
-                                onClick={() => setIsAddingCategory(false)}
-                                className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300 transition-colors"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
+                            <input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} placeholder="New Cat" className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white" autoFocus />
+                            <button onClick={handleAddCategory} className="p-2.5 bg-cannabis-600 rounded-lg text-white"><Check className="w-5 h-5" /></button>
+                            <button onClick={() => setIsAddingCategory(false)} className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg text-gray-300"><X className="w-5 h-5" /></button>
                         </>
                     )}
                   </div>
@@ -367,44 +347,17 @@ export const AdminInventory: React.FC = () => {
                   <div className="flex gap-2">
                     {!isAddingBrand ? (
                         <>
-                            <select 
-                                value={form.brand}
-                                onChange={e => handleChange('brand', e.target.value)}
-                                className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
-                            >
+                            <select value={form.brand} onChange={e => handleChange('brand', e.target.value)} className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white">
                                 <option value="">Select Brand...</option>
                                 {brands.map(b => <option key={b} value={b}>{b}</option>)}
                             </select>
-                            <button 
-                                onClick={() => setIsAddingBrand(true)}
-                                className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300 transition-colors"
-                                title="Add New Brand"
-                            >
-                                <Plus className="w-5 h-5" />
-                            </button>
+                            <button onClick={() => setIsAddingBrand(true)} className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300"><Plus className="w-5 h-5" /></button>
                         </>
                     ) : (
                         <>
-                            <input 
-                                type="text"
-                                value={newBrandName}
-                                onChange={(e) => setNewBrandName(e.target.value)}
-                                placeholder="New Brand"
-                                className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white focus:border-cannabis-500 outline-none"
-                                autoFocus
-                            />
-                            <button 
-                                onClick={handleAddBrand}
-                                className="p-2.5 bg-cannabis-600 rounded-lg hover:bg-cannabis-500 text-white transition-colors"
-                            >
-                                <Check className="w-5 h-5" />
-                            </button>
-                            <button 
-                                onClick={() => setIsAddingBrand(false)}
-                                className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg hover:bg-dark-700 text-gray-300 transition-colors"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
+                            <input value={newBrandName} onChange={(e) => setNewBrandName(e.target.value)} placeholder="New Brand" className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white" autoFocus />
+                            <button onClick={handleAddBrand} className="p-2.5 bg-cannabis-600 rounded-lg text-white"><Check className="w-5 h-5" /></button>
+                            <button onClick={() => setIsAddingBrand(false)} className="p-2.5 bg-dark-800 border border-gray-700 rounded-lg text-gray-300"><X className="w-5 h-5" /></button>
                         </>
                     )}
                   </div>
@@ -418,30 +371,56 @@ export const AdminInventory: React.FC = () => {
                 value={form.flavor}
                 onChange={e => handleChange('flavor', e.target.value)}
                 className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
-                placeholder="e.g. Purple Haze"
+                placeholder={activeTab === 'Vape' ? "e.g. Blue Razz Ice" : "e.g. Purple Haze"}
               />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-              <div>
-                  <label className="block text-sm text-gray-400 mb-1">Strain Type</label>
-                  <select 
-                    value={form.strain}
-                    onChange={e => handleChange('strain', e.target.value)}
-                    className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
-                  >
-                      {Object.values(StrainType).map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-              </div>
-              <div>
-                  <label className="block text-sm text-gray-400 mb-1">THC %</label>
-                  <input 
-                    type="number" 
-                    value={form.thcPercentage}
-                    onChange={e => handleChange('thcPercentage', Number(e.target.value))}
-                    className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
-                  />
-              </div>
+              {activeTab === 'Cannabis' ? (
+                  <>
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-1">Strain Type</label>
+                        <select 
+                            value={form.strain}
+                            onChange={e => handleChange('strain', e.target.value)}
+                            className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
+                        >
+                            {Object.values(StrainType).map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-1">THC %</label>
+                        <input 
+                            type="number" 
+                            value={form.thcPercentage}
+                            onChange={e => handleChange('thcPercentage', Number(e.target.value))}
+                            className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
+                        />
+                    </div>
+                  </>
+              ) : (
+                  <>
+                    <div>
+                         <label className="block text-sm text-gray-400 mb-1">Puff Count</label>
+                         <input 
+                            type="number" 
+                            value={form.puffCount}
+                            onChange={e => handleChange('puffCount', Number(e.target.value))}
+                            className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-white"
+                            placeholder="e.g. 5000"
+                        />
+                    </div>
+                    <div>
+                         <label className="block text-sm text-gray-400 mb-1">Nicotine % (Optional)</label>
+                         <input 
+                            type="number" 
+                            disabled
+                            placeholder="5% (Standard)"
+                            className="w-full bg-dark-900 border border-gray-700 rounded-lg p-2.5 text-gray-500 cursor-not-allowed"
+                        />
+                    </div>
+                  </>
+              )}
           </div>
 
           {/* Pricing Weights */}
@@ -460,7 +439,7 @@ export const AdminInventory: React.FC = () => {
                                 className="w-full bg-dark-800 border border-gray-700 rounded-lg p-2 text-white text-sm placeholder-gray-600"
                                 value={w.label}
                                 onChange={e => handleWeightChange(idx, 'label', e.target.value)}
-                                placeholder="e.g. 3.5g, 10pk"
+                                placeholder={activeTab === 'Vape' ? "e.g. 1pc" : "e.g. 3.5g"}
                             />
                         </div>
                         <div className="w-24">
@@ -496,15 +475,10 @@ export const AdminInventory: React.FC = () => {
               
               <button 
                 onClick={handleAddWeight}
-                className="mt-4 flex items-center gap-2 text-sm font-medium text-cannabis-500 hover:text-cannabis-400 transition-colors"
+                className={`mt-4 flex items-center gap-2 text-sm font-medium transition-colors ${activeTab === 'Vape' ? 'text-blue-400' : 'text-cannabis-500'}`}
               >
                   <Plus className="w-4 h-4" /> Add Variation
               </button>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 bg-dark-900 rounded-lg border border-gray-700">
-              <span className="text-gray-400 text-sm">Total Inventory Count</span>
-              <span className="text-xl font-bold text-white">{form.stock}</span>
           </div>
 
           {/* AI Description */}
@@ -514,7 +488,7 @@ export const AdminInventory: React.FC = () => {
                 <button 
                     onClick={handleGenerateDescription}
                     disabled={!form.brand || !form.flavor}
-                    className="text-xs flex items-center gap-1 text-cannabis-400 hover:text-cannabis-300 disabled:opacity-50"
+                    className={`text-xs flex items-center gap-1 disabled:opacity-50 ${activeTab === 'Vape' ? 'text-blue-400 hover:text-blue-300' : 'text-cannabis-400 hover:text-cannabis-300'}`}
                 >
                     <Sparkles className="w-3 h-3" /> Generate with AI
                 </button>
@@ -531,8 +505,8 @@ export const AdminInventory: React.FC = () => {
             <Button variant="secondary" onClick={handleClear} className="w-1/3">
               <RotateCcw className="w-4 h-4 mr-2" /> Clear
             </Button>
-            <Button fullWidth size="lg" onClick={handleSave} className="flex-1">
-                <Save className="w-5 h-5 mr-2" /> Save & Publish
+            <Button fullWidth size="lg" onClick={handleSave} className={`flex-1 ${activeTab === 'Vape' ? 'bg-blue-600 hover:bg-blue-500' : ''}`}>
+                <Save className="w-5 h-5 mr-2" /> Save {activeTab}
             </Button>
           </div>
 
@@ -540,17 +514,21 @@ export const AdminInventory: React.FC = () => {
 
         {/* RIGHT COLUMN: LIST VIEW (Bulk) */}
         <div className="bg-dark-800 p-6 rounded-2xl border border-gray-700 h-fit">
-            <h2 className="text-xl font-bold text-white mb-4">Current Inventory</h2>
+            <h2 className="text-xl font-bold text-white mb-4">Current {activeTab} Inventory</h2>
             <div className="space-y-3 max-h-[800px] overflow-y-auto pr-2">
-                {products.map(p => (
-                    <div key={p.id} className="flex items-center gap-3 bg-dark-900 p-3 rounded-lg border border-gray-800 hover:border-gray-600 cursor-pointer" onClick={() => setForm(p)}>
+                {products.filter(p => p.productType === activeTab).map(p => (
+                    <div key={p.id} className="flex items-center gap-3 bg-dark-900 p-3 rounded-lg border border-gray-800 hover:border-gray-600 cursor-pointer" onClick={() => handleEdit(p)}>
                         <img src={p.imageUrl} className="w-10 h-10 rounded object-cover bg-white" />
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                                 <div className="font-bold text-white truncate">{p.flavor}</div>
                                 {p.isFeatured && <Star className="w-3 h-3 fill-gold-400 text-gold-400" />}
                             </div>
-                            <div className="text-xs text-gray-500">{p.brand}</div>
+                            <div className="text-xs text-gray-500 flex gap-1">
+                                <span>{p.brand}</span>
+                                <span>•</span>
+                                <span>{p.productType === 'Vape' ? `${p.puffCount} puffs` : p.category}</span>
+                            </div>
                         </div>
                         <div className="text-right">
                              <div className="font-bold text-white">${p.weights[0].price}</div>
@@ -563,6 +541,12 @@ export const AdminInventory: React.FC = () => {
                         </div>
                     </div>
                 ))}
+                {products.filter(p => p.productType === activeTab).length === 0 && (
+                    <div className="text-center py-12 text-gray-500">
+                        <p>No {activeTab} products found.</p>
+                        <p className="text-xs">Add your first one to the left.</p>
+                    </div>
+                )}
             </div>
         </div>
       </div>

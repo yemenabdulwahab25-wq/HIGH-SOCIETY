@@ -1,38 +1,58 @@
+
 import { GoogleGenAI, Chat } from "@google/genai";
-import { Product } from "../types";
+import { Product, ProductType } from "../types";
 
 const apiKey = process.env.API_KEY || ''; // Ideally this is set in env
 const ai = new GoogleGenAI({ apiKey });
 
-export const generateDescription = async (brand: string, flavor: string, strain: string): Promise<string> => {
+export const generateDescription = async (brand: string, flavor: string, strainOrType: string, productType: ProductType = 'Cannabis'): Promise<string> => {
   if (!apiKey) return "AI Description unavailable (Missing API Key).";
   try {
     const model = 'gemini-3-flash-preview';
-    const prompt = `Write a short, premium, seductive 2-sentence description for a cannabis product.
-    Brand: ${brand}
-    Flavor: ${flavor}
-    Strain: ${strain}
-    Focus on flavor notes and effects. Do not make medical claims.`;
+    let prompt = '';
+    
+    if (productType === 'Vape') {
+        prompt = `Write a short, punchy, energetic 2-sentence description for a nicotine vape product.
+        Brand: ${brand}
+        Flavor: ${flavor}
+        Puff Count/Type: ${strainOrType}
+        Focus on flavor intensity, cloud production, and longevity. Do not mention cannabis/THC effects.`;
+    } else {
+        prompt = `Write a short, premium, seductive 2-sentence description for a cannabis product.
+        Brand: ${brand}
+        Flavor: ${flavor}
+        Strain: ${strainOrType}
+        Focus on flavor notes and effects. Do not make medical claims.`;
+    }
 
     const response = await ai.models.generateContent({
       model,
       contents: prompt,
     });
-    return response.text?.trim() || "Premium cannabis product.";
+    return response.text?.trim() || "Premium product selection.";
   } catch (error) {
     console.error("Gemini Error:", error);
     return "Experience the peak of quality with this premium selection.";
   }
 };
 
-export const analyzeImage = async (base64Image: string): Promise<Partial<Product>> => {
+export const analyzeImage = async (base64Image: string, productType: ProductType = 'Cannabis'): Promise<Partial<Product>> => {
     if (!apiKey) return {};
     try {
         const model = 'gemini-3-flash-preview';
-        const prompt = `Analyze this image of a cannabis product packaging. 
-        Extract the likely Brand Name, Flavor/Strain Name, Strain Type (Indica/Sativa/Hybrid), and THC percentage if visible.
-        Return ONLY a JSON object with keys: brand, flavor, strain, thcPercentage. 
-        If not found, return null for that key.`;
+        let prompt = '';
+
+        if (productType === 'Vape') {
+             prompt = `Analyze this image of a Vape / E-cigarette packaging. 
+             Extract the Brand Name, Flavor, and Puff Count (e.g. 5000 puffs).
+             Return ONLY a JSON object with keys: brand, flavor, puffCount (number). 
+             If not found, return null for that key.`;
+        } else {
+             prompt = `Analyze this image of a cannabis product packaging. 
+             Extract the likely Brand Name, Flavor/Strain Name, Strain Type (Indica/Sativa/Hybrid), and THC percentage if visible.
+             Return ONLY a JSON object with keys: brand, flavor, strain, thcPercentage. 
+             If not found, return null for that key.`;
+        }
         
         const response = await ai.models.generateContent({
             model,
@@ -100,36 +120,32 @@ export const initBudtenderChat = (inventory: Product[]): Chat | null => {
     // Format inventory for the AI context
     const inventoryContext = inventory
         .filter(p => p.isPublished)
-        .map(p => `
-            - Name: ${p.flavor}
-            - Brand: ${p.brand}
-            - Type: ${p.category} (${p.strain})
-            - THC: ${p.thcPercentage}%
-            - Price: $${p.weights[0]?.price} for ${p.weights[0]?.label}
-            - Status: ${p.stock > 0 ? 'In Stock' : 'Sold Out'}
-            - Desc: ${p.description}
-        `).join('\n');
+        .map(p => {
+            if (p.productType === 'Vape') {
+                return `- Vape: ${p.brand} ${p.flavor}, ${p.puffCount || 'Standard'} puffs, $${p.weights[0]?.price}`;
+            }
+            return `- Cannabis: ${p.flavor} (${p.strain}), ${p.brand}, ${p.thcPercentage}% THC, $${p.weights[0]?.price}`;
+        }).join('\n');
 
     const systemInstruction = `
         You are "The Concierge", a premium AI Budtender for 'Billionaire Level'. 
-        Your goal is to assist customers in finding the perfect cannabis product and answer their cannabis culture questions.
+        Your goal is to assist customers in finding the perfect cannabis OR vape product.
         
         Personality:
         - Sophisticated, helpful, and concise. 
         - Use emojis sparingly but effectively (🌿, 🔥, 💨).
         - Do NOT act like a doctor. Do not give medical advice.
-        - Act like a high-end sommelier but for weed.
+        - Act like a high-end sommelier.
 
         Capabilities:
         - You have access to the store's LIVE INVENTORY (below). Use this for product requests.
-        - You have access to Google Search. Use this for general cannabis knowledge, news, tutorials, or culture questions that are NOT about specific store stock.
+        - You have access to Google Search. Use this for general knowledge.
 
         Rules:
-        1. ONLY recommend products from the provided Inventory List below for purchase inquiries. Do not hallucinate products we don't sell.
-        2. If a user asks for something we don't have, politely suggest the closest alternative from the list.
+        1. ONLY recommend products from the provided Inventory List below.
+        2. If a user asks for vapes, check the Vape list.
         3. If a product is 'Sold Out', inform the user.
         4. Keep responses short (under 3 sentences) unless asked for a detailed explanation.
-        5. For general questions (e.g. "How to roll?", "What are terpenes?"), use Google Search to provide an accurate, up-to-date answer.
 
         Current Inventory List:
         ${inventoryContext}

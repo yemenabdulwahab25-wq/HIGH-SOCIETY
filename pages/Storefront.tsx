@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, Share2, Sparkles } from 'lucide-react';
+import { Search, Filter, Share2, Sparkles, Cloud } from 'lucide-react';
 import { storage } from '../services/storage';
 import { Product, StoreSettings, Category } from '../types';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
@@ -21,6 +21,7 @@ export const getCategoryColor = (category: string) => {
     case 'Cartridge': return 'bg-violet-500/10 text-violet-400 border-violet-500/20';
     case 'Concentrate': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
     case 'Accessory': return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+    case 'Vape': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
     default: return 'bg-gray-800 text-gray-400 border-gray-700';
   }
 };
@@ -38,7 +39,9 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
     const load = () => {
         const allProducts = storage.getProducts().filter(p => p.isPublished);
         setProducts(allProducts);
-        setCategories(['All', ...storage.getCategories()]);
+        // Dedupe categories including Vapes
+        const allCats = Array.from(new Set(['All', ...allProducts.map(p => p.category)]));
+        setCategories(allCats);
         setBrands(['All', ...storage.getBrands()]);
     };
 
@@ -205,8 +208,17 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
               <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1 flex justify-between items-center">
                   <span className="text-gold-500/80">{product.brand}</span>
                   <div className="flex items-center gap-1">
-                      <Sparkles className="w-2.5 h-2.5 text-cannabis-500" />
-                      <span className="text-gray-400">{product.thcPercentage}%</span>
+                      {product.productType === 'Vape' ? (
+                          <>
+                            <Cloud className="w-2.5 h-2.5 text-blue-400" />
+                            <span className="text-gray-400">{product.puffCount ? `${product.puffCount / 1000}k` : 'Max'}</span>
+                          </>
+                      ) : (
+                          <>
+                            <Sparkles className="w-2.5 h-2.5 text-cannabis-500" />
+                            <span className="text-gray-400">{product.thcPercentage}%</span>
+                          </>
+                      )}
                   </div>
               </div>
               
@@ -215,13 +227,19 @@ export const Storefront: React.FC<StorefrontProps> = ({ settings }) => {
               </h3>
               
               <div className="flex items-center gap-2 mb-3">
-                <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
-                  product.strain === 'Indica' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                  product.strain === 'Sativa' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                  'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                }`}>
-                    {product.strain}
-                </span>
+                {product.productType === 'Vape' ? (
+                     <span className="px-2 py-0.5 rounded text-[10px] font-medium border bg-blue-500/10 text-blue-400 border-blue-500/20">
+                         {product.puffCount} Puffs
+                     </span>
+                ) : (
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
+                    product.strain === 'Indica' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                    product.strain === 'Sativa' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    }`}>
+                        {product.strain}
+                    </span>
+                )}
               </div>
 
               <div className="flex items-end justify-between border-t border-gray-800 pt-3">
