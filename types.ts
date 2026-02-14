@@ -47,6 +47,7 @@ export interface Review {
   rating: number; // 1-5
   comment: string;
   timestamp: number;
+  userId?: string; // Owner ID
 }
 
 export interface Product {
@@ -80,6 +81,7 @@ export interface Customer {
   email?: string;
   pin: string; // Encrypted/Hashed PIN for access
   joinedDate: number;
+  userId?: string; // Firebase Auth UID
 }
 
 export interface Order {
@@ -100,6 +102,7 @@ export interface Order {
   generatedReferralCode?: string;
   appliedReferralCode?: string;
   deliveryZoneName?: string; // New: Track which zone was used
+  userId?: string; // Firebase Auth UID
 }
 
 export interface HolidayTheme {

@@ -1,7 +1,8 @@
 
 import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category, HolidayTheme, Review, Customer, CartItem } from '../types';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { collection, doc, setDoc, getDocs, updateDoc, query, where, Timestamp, onSnapshot } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const KEYS = {
   PRODUCTS: 'hs_products',
@@ -118,15 +119,17 @@ const notifyFirestoreError = (type: 'SETUP_REQUIRED' | 'PERMISSION_DENIED') => {
 let unsubscribeProducts: (() => void) | null = null;
 let unsubscribeOrders: (() => void) | null = null;
 let unsubscribeSettings: (() => void) | null = null;
+let isRealtimeInit = false;
 
 export const storage = {
   // --- REAL-TIME SYNC ---
   initRealtimeListeners: () => {
-      if (!db) return; // Don't listen if Firebase isn't configured
+      if (!db || isRealtimeInit) return; 
+      isRealtimeInit = true;
 
       console.log("📡 Initializing Real-time Listeners...");
 
-      // 1. Products Listener
+      // 1. Products Listener (Public Read)
       if (!unsubscribeProducts) {
           unsubscribeProducts = onSnapshot(collection(db, "products"), (snapshot) => {
               const products: Product[] = [];
@@ -146,25 +149,7 @@ export const storage = {
           });
       }
 
-      // 2. Orders Listener
-      if (!unsubscribeOrders) {
-          unsubscribeOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
-              const orders: Order[] = [];
-              snapshot.forEach((doc) => orders.push(doc.data() as Order));
-              
-              if (orders.length > 0) {
-                  localStorage.setItem(KEYS.ORDERS, encryptData(orders));
-                  notifyUpdate();
-              }
-          }, (error) => {
-              if (error.code === 'permission-denied') {
-                   // Only notify once from the main listener (products) to avoid spam
-                   console.warn("Orders permission denied");
-              }
-          });
-      }
-
-      // 3. Settings Listener
+      // 2. Settings Listener (Public Read)
       if (!unsubscribeSettings) {
            unsubscribeSettings = onSnapshot(doc(db, "settings", "global"), (doc) => {
                if (doc.exists()) {
@@ -175,6 +160,34 @@ export const storage = {
                // Suppress
            });
       }
+
+      // 3. Orders Listener (Private - Requires Auth)
+      // We wrap this in onAuthStateChanged to ensure we have the UID for the query
+      onAuthStateChanged(auth, (user) => {
+          if (unsubscribeOrders) {
+              unsubscribeOrders();
+              unsubscribeOrders = null;
+          }
+
+          if (user) {
+              // SECURITY: Query MUST match the security rule (userId == auth.uid)
+              const orderQuery = query(collection(db, "orders"), where("userId", "==", user.uid));
+              
+              unsubscribeOrders = onSnapshot(orderQuery, (snapshot) => {
+                  const orders: Order[] = [];
+                  snapshot.forEach((doc) => orders.push(doc.data() as Order));
+                  
+                  if (orders.length > 0) {
+                      localStorage.setItem(KEYS.ORDERS, encryptData(orders));
+                      notifyUpdate();
+                  }
+              }, (error) => {
+                  if (error.code === 'permission-denied') {
+                       console.warn("Orders permission denied - check security rules");
+                  }
+              });
+          }
+      });
   },
 
   getProducts: (): Product[] => {
@@ -202,6 +215,8 @@ export const storage = {
     // 2. Sync to Firebase (Background)
     if (db) {
         try {
+            // Products are usually managed by Admin. 
+            // We assume admin is logged in, but products are generally public read.
             await setDoc(doc(db, "products", product.id), product);
             console.log("☁️ Synced product to Firebase:", product.flavor);
         } catch (e: any) {
@@ -277,6 +292,11 @@ export const storage = {
   },
   
   saveOrder: async (order: Order) => {
+    // Inject User ID for Security Rules
+    if (auth.currentUser) {
+        order.userId = auth.currentUser.uid;
+    }
+
     // 1. Local
     const orders = storage.getOrders();
     const index = orders.findIndex(o => o.id === order.id);
@@ -302,6 +322,11 @@ export const storage = {
 
   // --- CUSTOMER STORAGE ---
   saveCustomer: async (customer: Customer) => {
+      // Inject User ID for Security Rules
+      if (auth.currentUser) {
+          customer.userId = auth.currentUser.uid;
+      }
+
       // 1. Local
       const customers = storage.getCustomers();
       const index = customers.findIndex(c => c.id === customer.id);
@@ -429,6 +454,11 @@ export const storage = {
     return allReviews.filter(r => r.productId === productId).sort((a,b) => b.timestamp - a.timestamp);
   },
   addReview: async (review: Review) => {
+    // Inject User ID
+    if (auth.currentUser) {
+        review.userId = auth.currentUser.uid;
+    }
+
     // Local
     const data = localStorage.getItem(KEYS.REVIEWS);
     const allReviews: Review[] = data ? JSON.parse(data) : [];
@@ -458,7 +488,7 @@ export const storage = {
       try {
           console.log("☁️ Starting Cloud Sync...");
           
-          // Products
+          // Products (Public)
           const pSnap = await getDocs(collection(db, "products"));
           const products: Product[] = [];
           pSnap.forEach(doc => products.push(doc.data() as Product));
@@ -466,18 +496,31 @@ export const storage = {
               localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
           }
 
-          // Settings
+          // Settings (Public)
           const sSnap = await getDocs(collection(db, "settings"));
           sSnap.forEach(doc => {
               if (doc.id === 'global') localStorage.setItem(KEYS.SETTINGS, JSON.stringify(doc.data()));
           });
 
-          // Customers
-          const cSnap = await getDocs(collection(db, "customers"));
-          const customers: Customer[] = [];
-          cSnap.forEach(doc => customers.push(doc.data() as Customer));
-          if (customers.length > 0) {
-              localStorage.setItem(KEYS.CUSTOMERS, encryptData(customers));
+          // Private Data (Requires Auth)
+          if (auth.currentUser) {
+              // Customers
+              const cQuery = query(collection(db, "customers"), where("userId", "==", auth.currentUser.uid));
+              const cSnap = await getDocs(cQuery);
+              const customers: Customer[] = [];
+              cSnap.forEach(doc => customers.push(doc.data() as Customer));
+              if (customers.length > 0) {
+                  localStorage.setItem(KEYS.CUSTOMERS, encryptData(customers));
+              }
+
+              // Orders
+              const oQuery = query(collection(db, "orders"), where("userId", "==", auth.currentUser.uid));
+              const oSnap = await getDocs(oQuery);
+              const orders: Order[] = [];
+              oSnap.forEach(doc => orders.push(doc.data() as Order));
+              if (orders.length > 0) {
+                  localStorage.setItem(KEYS.ORDERS, encryptData(orders));
+              }
           }
 
           notifyUpdate();
