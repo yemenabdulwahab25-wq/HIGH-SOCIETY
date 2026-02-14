@@ -141,7 +141,12 @@ export const storage = {
               }
           }, (error) => {
               console.error("Product Sync Error:", error.code, error.message);
-              if (error.message.includes('Cloud Firestore API has not been used')) {
+              // Handle 'database not found' specifically
+              if (
+                  error.message.includes('Cloud Firestore API has not been used') || 
+                  error.message.includes('The database (default) does not exist') ||
+                  error.code === 'not-found'
+              ) {
                   notifyFirestoreError("SETUP_REQUIRED");
               } else if (error.code === 'permission-denied') {
                   notifyFirestoreError("PERMISSION_DENIED");
@@ -222,6 +227,7 @@ export const storage = {
         } catch (e: any) {
             console.error("Firebase sync error", e);
             if (e.code === 'permission-denied') notifyFirestoreError("PERMISSION_DENIED");
+            if (e.code === 'not-found') notifyFirestoreError("SETUP_REQUIRED");
         }
     }
   },
@@ -316,6 +322,7 @@ export const storage = {
         } catch (e: any) {
             console.error("Order sync fail", e);
             if (e.code === 'permission-denied') notifyFirestoreError("PERMISSION_DENIED");
+            if (e.code === 'not-found') notifyFirestoreError("SETUP_REQUIRED");
         }
     }
   },
@@ -344,6 +351,7 @@ export const storage = {
           } catch (e: any) {
               console.error("Customer sync fail", e);
               if (e.code === 'permission-denied') notifyFirestoreError("PERMISSION_DENIED");
+              if (e.code === 'not-found') notifyFirestoreError("SETUP_REQUIRED");
           }
       }
   },
@@ -527,7 +535,11 @@ export const storage = {
           console.log("✅ Cloud Sync Complete");
       } catch (e: any) {
           console.error("Cloud Sync Error", e);
-          if (e.message.includes('Cloud Firestore API')) {
+          if (
+              e.message.includes('Cloud Firestore API') || 
+              e.message.includes('The database (default) does not exist') ||
+              e.code === 'not-found'
+          ) {
               notifyFirestoreError("SETUP_REQUIRED");
           } else if (e.code === 'permission-denied') {
               notifyFirestoreError("PERMISSION_DENIED");

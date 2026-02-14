@@ -73,7 +73,7 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
     const newSettings = {
         ...settings,
         [section]: {
-            ...settings[section as keyof StoreSettings],
+            ...(settings[section] as any),
             [key]: value
         }
     };
