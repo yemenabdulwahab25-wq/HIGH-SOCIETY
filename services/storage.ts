@@ -106,8 +106,8 @@ const notifyUpdate = () => {
     window.dispatchEvent(new Event('hs_storage_update'));
 };
 
-const notifyFirestoreError = (message: string) => {
-    const event = new CustomEvent('hs_firestore_error', { detail: { message } });
+const notifyFirestoreError = (type: 'SETUP_REQUIRED' | 'PERMISSION_DENIED') => {
+    const event = new CustomEvent('hs_firestore_error', { detail: { type } });
     window.dispatchEvent(event);
 };
 
@@ -137,11 +137,11 @@ export const storage = {
                   notifyUpdate();
               }
           }, (error) => {
-              if (error.message.includes('Cloud Firestore API has not been used') || error.code === 'permission-denied') {
-                  console.error("⚠️ FIRESTORE SETUP REQUIRED");
-                  notifyFirestoreError("Firestore API not enabled. Please check Firebase Console.");
-              } else {
-                  console.log("Product sync paused (offline/error)", error.message);
+              console.error("Product Sync Error:", error.code, error.message);
+              if (error.message.includes('Cloud Firestore API has not been used')) {
+                  notifyFirestoreError("SETUP_REQUIRED");
+              } else if (error.code === 'permission-denied') {
+                  notifyFirestoreError("PERMISSION_DENIED");
               }
           });
       }
@@ -157,9 +157,9 @@ export const storage = {
                   notifyUpdate();
               }
           }, (error) => {
-              // Suppress duplicate errors, main listener handles notifications
-              if (!error.message.includes('Cloud Firestore API has not been used')) {
-                  console.log("Order sync paused");
+              if (error.code === 'permission-denied') {
+                   // Only notify once from the main listener (products) to avoid spam
+                   console.warn("Orders permission denied");
               }
           });
       }
@@ -206,9 +206,7 @@ export const storage = {
             console.log("☁️ Synced product to Firebase:", product.flavor);
         } catch (e: any) {
             console.error("Firebase sync error", e);
-            if (e.message.includes('Cloud Firestore API')) {
-                notifyFirestoreError("Firestore API not enabled.");
-            }
+            if (e.code === 'permission-denied') notifyFirestoreError("PERMISSION_DENIED");
         }
     }
   },
@@ -297,9 +295,7 @@ export const storage = {
             console.log("☁️ Order synced to cloud");
         } catch (e: any) {
             console.error("Order sync fail", e);
-            if (e.message.includes('Cloud Firestore API')) {
-                notifyFirestoreError("Firestore API not enabled.");
-            }
+            if (e.code === 'permission-denied') notifyFirestoreError("PERMISSION_DENIED");
         }
     }
   },
@@ -322,9 +318,7 @@ export const storage = {
               await setDoc(doc(db, "customers", customer.id), customer);
           } catch (e: any) {
               console.error("Customer sync fail", e);
-              if (e.message.includes('Cloud Firestore API')) {
-                  notifyFirestoreError("Firestore API not enabled.");
-              }
+              if (e.code === 'permission-denied') notifyFirestoreError("PERMISSION_DENIED");
           }
       }
   },
@@ -491,7 +485,9 @@ export const storage = {
       } catch (e: any) {
           console.error("Cloud Sync Error", e);
           if (e.message.includes('Cloud Firestore API')) {
-              notifyFirestoreError("Firestore API not enabled.");
+              notifyFirestoreError("SETUP_REQUIRED");
+          } else if (e.code === 'permission-denied') {
+              notifyFirestoreError("PERMISSION_DENIED");
           }
       }
   }

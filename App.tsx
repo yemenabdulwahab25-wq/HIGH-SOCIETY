@@ -19,7 +19,7 @@ import { AdminMarketing } from './pages/admin/AdminMarketing';
 import { FirebaseLogin } from './pages/FirebaseLogin';
 import { storage } from './services/storage';
 import { CartItem, Product, StoreSettings } from './types';
-import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Loader2, AlertTriangle, ExternalLink, ShieldAlert } from 'lucide-react';
 
 // Wrapper for Admin Routes to ensure auth (Internal Pin)
 const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
@@ -78,8 +78,8 @@ const AppContent = () => {
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   
-  // Developer Setup Alert
-  const [firestoreError, setFirestoreError] = useState(false);
+  // Developer Setup Alert: 'SETUP_REQUIRED' | 'PERMISSION_DENIED' | null
+  const [firestoreError, setFirestoreError] = useState<string | null>(null);
 
   // Activate Holiday Themes
   useHolidayTheme(settings);
@@ -100,7 +100,9 @@ const AppContent = () => {
     });
 
     // 4. Listen for Firestore Setup Errors
-    const handleFirestoreError = () => setFirestoreError(true);
+    const handleFirestoreError = (e: any) => {
+        setFirestoreError(e.detail.type);
+    };
     window.addEventListener('hs_firestore_error', handleFirestoreError);
 
     return () => {
@@ -214,8 +216,10 @@ const AppContent = () => {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {/* Developer Config Alert */}
-      {firestoreError && (
+      {/* FIREBASE CONFIG ALERTS */}
+      
+      {/* 1. Database Missing */}
+      {firestoreError === 'SETUP_REQUIRED' && (
           <div className="fixed bottom-0 left-0 right-0 bg-red-600 text-white p-4 z-[100] shadow-2xl animate-in slide-in-from-bottom">
               <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
@@ -234,6 +238,33 @@ const AppContent = () => {
                       className="bg-white text-red-600 px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-gray-100 transition-colors whitespace-nowrap"
                   >
                       Open Firebase Console <ExternalLink className="w-4 h-4" />
+                  </a>
+              </div>
+          </div>
+      )}
+
+      {/* 2. Permission Denied (Rules) */}
+      {firestoreError === 'PERMISSION_DENIED' && (
+          <div className="fixed bottom-0 left-0 right-0 bg-orange-600 text-white p-4 z-[100] shadow-2xl animate-in slide-in-from-bottom">
+              <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                      <ShieldAlert className="w-8 h-8 flex-shrink-0 animate-pulse" />
+                      <div>
+                          <h3 className="font-bold text-lg">🚫 Access Denied: Update Firestore Rules</h3>
+                          <p className="text-sm text-orange-100">
+                              Your database exists, but security rules are blocking access.
+                              <br/>
+                              Copy the rules from <code>firestore.rules</code> to the console.
+                          </p>
+                      </div>
+                  </div>
+                  <a 
+                      href="https://console.firebase.google.com/project/_/firestore/rules" 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="bg-white text-orange-600 px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-gray-100 transition-colors whitespace-nowrap"
+                  >
+                      Update Rules <ExternalLink className="w-4 h-4" />
                   </a>
               </div>
           </div>

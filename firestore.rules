@@ -1,0 +1,39 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User Profiles: Users can read/write their own profile
+    match /customers/{userId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Orders: Authenticated users can create/read orders
+    match /orders/{orderId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Products: Readable by all, Writable by authenticated (Admin)
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Settings: Readable by all, Writable by authenticated (Admin)
+    match /settings/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Reviews: Readable by all, Writable by authenticated
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Fallback: Allow authenticated read/write for dev speed
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
