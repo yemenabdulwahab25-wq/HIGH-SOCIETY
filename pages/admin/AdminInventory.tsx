@@ -184,18 +184,60 @@ export const AdminInventory: React.FC = () => {
     }
   };
 
+  // --- IMAGE COMPRESSION LOGIC ---
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800; // Limit width to 800px
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Compress to JPEG at 70% quality
+          resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+        };
+        img.onerror = (error) => reject(error);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const reader = new FileReader();
       
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        handleChange('imageUrl', base64);
-        performImageScan(base64);
-      };
-      
-      reader.readAsDataURL(file);
+      try {
+          // Compress before setting state
+          const compressedBase64 = await compressImage(file);
+          handleChange('imageUrl', compressedBase64);
+          performImageScan(compressedBase64);
+      } catch (err) {
+          console.error("Compression failed", err);
+          alert("Could not process image. Please try another.");
+      }
     }
   };
 
@@ -331,9 +373,14 @@ export const AdminInventory: React.FC = () => {
             setNotifyCustomers(false);
             alert("Product Saved Successfully!");
         }
-    } catch (err) {
+    } catch (err: any) {
         console.error("Save Error:", err);
-        alert("An error occurred while saving. Please try again.");
+        // Explicitly handle Quota Exceeded error
+        if (err.name === 'QuotaExceededError' || err.code === 22) {
+            alert("STORAGE FULL: Your browser has run out of space. \n\n1. We have compressed this image to help fit more.\n2. Please delete old products or clear your browser data to make space.");
+        } else {
+            alert("An error occurred while saving. Please try again.");
+        }
     }
   };
 
@@ -508,7 +555,7 @@ export const AdminInventory: React.FC = () => {
                         <Camera className="w-10 h-10 text-gray-500 mb-2" />
                         <span className="text-gray-400">Tap to Capture / Upload</span>
                         <span className={`text-xs font-bold mt-1 flex items-center gap-1 ${isVapeForm ? 'text-blue-400' : 'text-cannabis-500'}`}>
-                            <Sparkles className="w-3 h-3" /> Auto-Scan Enabled
+                            <Sparkles className="w-3 h-3" /> Auto-Scan + Compression Enabled
                         </span>
                     </>
                 )}
