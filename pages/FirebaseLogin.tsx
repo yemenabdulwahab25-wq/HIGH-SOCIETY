@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/ui/Button';
-import { Lock, Mail, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, AlertCircle, ShieldCheck, ExternalLink } from 'lucide-react';
 
 export const FirebaseLogin: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -25,11 +24,19 @@ export const FirebaseLogin: React.FC = () => {
         await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (err: any) {
-      console.error(err);
+      console.error("Auth Error:", err);
       let msg = "Authentication failed.";
+      
+      // Common User Errors
       if (err.code === 'auth/invalid-credential') msg = "Invalid email or password.";
       if (err.code === 'auth/email-already-in-use') msg = "Email already in use.";
       if (err.code === 'auth/weak-password') msg = "Password should be at least 6 characters.";
+      
+      // Configuration Errors (Developer Action Required)
+      if (err.code === 'auth/configuration-not-found' || err.code === 'auth/operation-not-allowed') {
+          msg = "SETUP REQUIRED: Enable 'Email/Password' in Firebase Console -> Authentication -> Sign-in method.";
+      }
+      
       setError(msg);
     } finally {
       setLoading(false);
@@ -89,9 +96,16 @@ export const FirebaseLogin: React.FC = () => {
           </div>
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-center gap-2 text-red-400 text-sm">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {error}
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex flex-col gap-1 text-red-400 text-sm">
+                <div className="flex items-center gap-2 font-bold">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" /> Error
+                </div>
+                <div>{error}</div>
+                {error.includes("SETUP REQUIRED") && (
+                     <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="text-xs underline flex items-center gap-1 mt-1 hover:text-red-300">
+                         Open Firebase Console <ExternalLink className="w-3 h-3" />
+                     </a>
+                )}
             </div>
           )}
 

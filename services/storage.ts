@@ -106,6 +106,11 @@ const notifyUpdate = () => {
     window.dispatchEvent(new Event('hs_storage_update'));
 };
 
+const notifyFirestoreError = (message: string) => {
+    const event = new CustomEvent('hs_firestore_error', { detail: { message } });
+    window.dispatchEvent(event);
+};
+
 // --- HYBRID STORAGE IMPLEMENTATION ---
 // We write to LocalStorage immediately for speed/offline capability.
 // We write to Firebase in the background for persistence.
@@ -128,12 +133,17 @@ export const storage = {
               snapshot.forEach((doc) => products.push(doc.data() as Product));
               
               if (products.length > 0) {
-                  // Compare with local to avoid infinite loops if possible, 
-                  // but for now we overwrite local with cloud truth
                   localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
                   notifyUpdate();
               }
-          }, (error) => console.log("Product sync paused (offline)"));
+          }, (error) => {
+              if (error.message.includes('Cloud Firestore API has not been used') || error.code === 'permission-denied') {
+                  console.error("⚠️ FIRESTORE SETUP REQUIRED");
+                  notifyFirestoreError("Firestore API not enabled. Please check Firebase Console.");
+              } else {
+                  console.log("Product sync paused (offline/error)", error.message);
+              }
+          });
       }
 
       // 2. Orders Listener
@@ -146,7 +156,12 @@ export const storage = {
                   localStorage.setItem(KEYS.ORDERS, encryptData(orders));
                   notifyUpdate();
               }
-          }, (error) => console.log("Order sync paused (offline)"));
+          }, (error) => {
+              // Suppress duplicate errors, main listener handles notifications
+              if (!error.message.includes('Cloud Firestore API has not been used')) {
+                  console.log("Order sync paused");
+              }
+          });
       }
 
       // 3. Settings Listener
@@ -156,6 +171,8 @@ export const storage = {
                    localStorage.setItem(KEYS.SETTINGS, JSON.stringify(doc.data()));
                    notifyUpdate();
                }
+           }, (error) => {
+               // Suppress
            });
       }
   },
@@ -187,8 +204,11 @@ export const storage = {
         try {
             await setDoc(doc(db, "products", product.id), product);
             console.log("☁️ Synced product to Firebase:", product.flavor);
-        } catch (e) {
+        } catch (e: any) {
             console.error("Firebase sync error", e);
+            if (e.message.includes('Cloud Firestore API')) {
+                notifyFirestoreError("Firestore API not enabled.");
+            }
         }
     }
   },
@@ -197,9 +217,7 @@ export const storage = {
      const products = storage.getProducts().filter(p => p.id !== id);
      localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
      notifyUpdate();
-     
-     // Delete from Firebase - Note: In a real app we might soft-delete
-     // For now, we update local only to avoid accidental data loss without complex sync logic
+     // Delete from Firebase - Local only for safe deletion
   },
   
   // --- INVENTORY MANAGEMENT ---
@@ -232,7 +250,6 @@ export const storage = {
                   allProducts[productIndex] = product;
                   inventoryUpdated = true;
                   
-                  // Fire-and-forget sync to Firebase
                   if (db) {
                       setDoc(doc(db, "products", product.id), product).catch(e => console.error("Stock sync fail", e));
                   }
@@ -278,8 +295,11 @@ export const storage = {
         try {
             await setDoc(doc(db, "orders", order.id), order);
             console.log("☁️ Order synced to cloud");
-        } catch (e) {
+        } catch (e: any) {
             console.error("Order sync fail", e);
+            if (e.message.includes('Cloud Firestore API')) {
+                notifyFirestoreError("Firestore API not enabled.");
+            }
         }
     }
   },
@@ -300,8 +320,11 @@ export const storage = {
       if (db) {
           try {
               await setDoc(doc(db, "customers", customer.id), customer);
-          } catch (e) {
+          } catch (e: any) {
               console.error("Customer sync fail", e);
+              if (e.message.includes('Cloud Firestore API')) {
+                  notifyFirestoreError("Firestore API not enabled.");
+              }
           }
       }
   },
@@ -436,7 +459,6 @@ export const storage = {
   },
 
   // --- UTILITY: ONE-TIME SYNC DOWNLOAD ---
-  // Call this manually or on app start to pull cloud data to local
   syncFromCloud: async () => {
       if (!db) return;
       try {
@@ -466,8 +488,11 @@ export const storage = {
 
           notifyUpdate();
           console.log("✅ Cloud Sync Complete");
-      } catch (e) {
+      } catch (e: any) {
           console.error("Cloud Sync Error", e);
+          if (e.message.includes('Cloud Firestore API')) {
+              notifyFirestoreError("Firestore API not enabled.");
+          }
       }
   }
 };

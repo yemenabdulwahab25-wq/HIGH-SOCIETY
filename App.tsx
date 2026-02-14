@@ -19,7 +19,7 @@ import { AdminMarketing } from './pages/admin/AdminMarketing';
 import { FirebaseLogin } from './pages/FirebaseLogin';
 import { storage } from './services/storage';
 import { CartItem, Product, StoreSettings } from './types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
 
 // Wrapper for Admin Routes to ensure auth (Internal Pin)
 const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
@@ -77,6 +77,9 @@ const AppContent = () => {
   // Firebase Auth State
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  
+  // Developer Setup Alert
+  const [firestoreError, setFirestoreError] = useState(false);
 
   // Activate Holiday Themes
   useHolidayTheme(settings);
@@ -96,7 +99,14 @@ const AppContent = () => {
       setAuthLoading(false);
     });
 
-    return () => unsubscribeAuth();
+    // 4. Listen for Firestore Setup Errors
+    const handleFirestoreError = () => setFirestoreError(true);
+    window.addEventListener('hs_firestore_error', handleFirestoreError);
+
+    return () => {
+      unsubscribeAuth();
+      window.removeEventListener('hs_firestore_error', handleFirestoreError);
+    };
   }, []);
 
   // Sync cart to local storage
@@ -154,54 +164,81 @@ const AppContent = () => {
 
   // MAIN APP
   return (
-    <Routes>
-      {/* Access Gate (Internal Layer) */}
-      <Route path="/access" element={<StoreAccess settings={settings} />} />
+    <>
+      <Routes>
+        {/* Access Gate (Internal Layer) */}
+        <Route path="/access" element={<StoreAccess settings={settings} />} />
 
-      {/* Public Guide */}
-      <Route path="/guide" element={<Guide />} />
+        {/* Public Guide */}
+        <Route path="/guide" element={<Guide />} />
 
-      {/* Customer Routes (Protected if enabled) */}
-      <Route path="/" element={
-        <CustomerRoute settings={settings}>
-          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)} settings={settings}>
-            <Storefront settings={settings} />
-          </Layout>
-        </CustomerRoute>
-      } />
-      <Route path="/product/:id" element={
-        <CustomerRoute settings={settings}>
-          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)} settings={settings}>
-            <ProductDetails addToCart={addToCart} />
-          </Layout>
-        </CustomerRoute>
-      } />
-      <Route path="/cart" element={
-        <CustomerRoute settings={settings}>
-          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)} settings={settings}>
-            <Cart cart={cart} removeFromCart={removeFromCart} clearCart={clearCart} settings={settings} />
-          </Layout>
-        </CustomerRoute>
-      } />
-      <Route path="/account" element={
-        <CustomerRoute settings={settings}>
-          <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)} settings={settings}>
-            <Account addToCart={addToCart} />
-          </Layout>
-        </CustomerRoute>
-      } />
-      
-      {/* Admin Routes */}
-      <Route path="/admin" element={<AdminLogin />} />
-      <Route path="/admin/dashboard" element={<AdminRoute><Layout isAdmin><AdminDashboard /></Layout></AdminRoute>} />
-      <Route path="/admin/customers" element={<AdminRoute><Layout isAdmin><AdminCustomers /></Layout></AdminRoute>} />
-      <Route path="/admin/inventory" element={<AdminRoute><Layout isAdmin><AdminInventory /></Layout></AdminRoute>} />
-      <Route path="/admin/marketing" element={<AdminRoute><Layout isAdmin><AdminMarketing /></Layout></AdminRoute>} />
-      <Route path="/admin/settings" element={<AdminRoute><Layout isAdmin><AdminSettings settings={settings} onUpdate={setSettings} /></Layout></AdminRoute>} />
+        {/* Customer Routes (Protected if enabled) */}
+        <Route path="/" element={
+          <CustomerRoute settings={settings}>
+            <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)} settings={settings}>
+              <Storefront settings={settings} />
+            </Layout>
+          </CustomerRoute>
+        } />
+        <Route path="/product/:id" element={
+          <CustomerRoute settings={settings}>
+            <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)} settings={settings}>
+              <ProductDetails addToCart={addToCart} />
+            </Layout>
+          </CustomerRoute>
+        } />
+        <Route path="/cart" element={
+          <CustomerRoute settings={settings}>
+            <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)} settings={settings}>
+              <Cart cart={cart} removeFromCart={removeFromCart} clearCart={clearCart} settings={settings} />
+            </Layout>
+          </CustomerRoute>
+        } />
+        <Route path="/account" element={
+          <CustomerRoute settings={settings}>
+            <Layout cartCount={cart.reduce((a,b) => a + b.quantity, 0)} settings={settings}>
+              <Account addToCart={addToCart} />
+            </Layout>
+          </CustomerRoute>
+        } />
+        
+        {/* Admin Routes */}
+        <Route path="/admin" element={<AdminLogin />} />
+        <Route path="/admin/dashboard" element={<AdminRoute><Layout isAdmin><AdminDashboard /></Layout></AdminRoute>} />
+        <Route path="/admin/customers" element={<AdminRoute><Layout isAdmin><AdminCustomers /></Layout></AdminRoute>} />
+        <Route path="/admin/inventory" element={<AdminRoute><Layout isAdmin><AdminInventory /></Layout></AdminRoute>} />
+        <Route path="/admin/marketing" element={<AdminRoute><Layout isAdmin><AdminMarketing /></Layout></AdminRoute>} />
+        <Route path="/admin/settings" element={<AdminRoute><Layout isAdmin><AdminSettings settings={settings} onUpdate={setSettings} /></Layout></AdminRoute>} />
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      {/* Developer Config Alert */}
+      {firestoreError && (
+          <div className="fixed bottom-0 left-0 right-0 bg-red-600 text-white p-4 z-[100] shadow-2xl animate-in slide-in-from-bottom">
+              <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                      <AlertTriangle className="w-8 h-8 flex-shrink-0 animate-bounce" />
+                      <div>
+                          <h3 className="font-bold text-lg">⚠️ Action Required: Create Firestore Database</h3>
+                          <p className="text-sm text-red-100">
+                              Your app is connecting to Firebase but the <strong>Database</strong> has not been created yet.
+                          </p>
+                      </div>
+                  </div>
+                  <a 
+                      href="https://console.firebase.google.com/project/_/firestore" 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="bg-white text-red-600 px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-gray-100 transition-colors whitespace-nowrap"
+                  >
+                      Open Firebase Console <ExternalLink className="w-4 h-4" />
+                  </a>
+              </div>
+          </div>
+      )}
+    </>
   );
 }
 
