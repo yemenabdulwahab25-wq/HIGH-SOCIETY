@@ -407,6 +407,13 @@ export const AdminInventory: React.FC = () => {
       setActiveTab(p.productType);
       setForm(p);
   };
+
+  const handleDeleteProduct = async (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      if (window.confirm("Are you sure you want to delete this product permanently?")) {
+          await storage.deleteProduct(id);
+      }
+  };
   
   // RESTOCK HANDLERS
   const openRestock = (e: React.MouseEvent, p: Product) => {
@@ -852,7 +859,7 @@ export const AdminInventory: React.FC = () => {
                                 <span>{p.productType === 'Vape' ? `${p.puffCount} puffs` : p.category}</span>
                             </div>
                         </div>
-                        <div className="text-right flex items-center gap-3">
+                        <div className="text-right flex items-center gap-2">
                              <div>
                                  <div className="font-bold text-white">${p.weights[0].price}</div>
                                  <div className={`text-xs font-bold px-2 py-0.5 rounded border mt-1 inline-flex items-center gap-1
@@ -874,6 +881,15 @@ export const AdminInventory: React.FC = () => {
                                 title="Quick Restock"
                              >
                                  <PackagePlus className="w-5 h-5" />
+                             </button>
+
+                             {/* DELETE BUTTON */}
+                             <button 
+                                onClick={(e) => handleDeleteProduct(e, p.id)}
+                                className="p-2 bg-dark-800 hover:bg-red-900/30 text-gray-400 hover:text-red-400 rounded-lg border border-gray-700 hover:border-red-500/50 transition-all"
+                                title="Delete Product"
+                             >
+                                 <Trash2 className="w-5 h-5" />
                              </button>
                         </div>
                     </div>

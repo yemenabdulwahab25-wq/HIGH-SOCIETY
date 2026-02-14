@@ -1,7 +1,7 @@
 
 import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category, HolidayTheme, Review, Customer, CartItem } from '../types';
 import { db, auth } from './firebase';
-import { collection, doc, setDoc, getDocs, updateDoc, query, where, Timestamp, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, updateDoc, query, where, Timestamp, onSnapshot, addDoc, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
 const KEYS = {
@@ -227,16 +227,28 @@ export const storage = {
         } catch (e: any) {
             console.error("Firebase sync error", e);
             if (e.code === 'permission-denied') notifyFirestoreError("PERMISSION_DENIED");
-            if (e.code === 'not-found') notifyFirestoreError("SETUP_REQUIRED");
+            if (e.code === 'not-found' || e.message?.includes('database')) notifyFirestoreError("SETUP_REQUIRED");
         }
     }
   },
 
   deleteProduct: async (id: string) => { 
+     // 1. Local Delete
      const products = storage.getProducts().filter(p => p.id !== id);
      localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
      notifyUpdate();
-     // Delete from Firebase - Local only for safe deletion
+     
+     // 2. Firebase Delete
+     if (db) {
+         try {
+             await deleteDoc(doc(db, "products", id));
+             console.log("🗑️ Product deleted from cloud");
+         } catch (e: any) {
+             console.error("Delete sync fail", e);
+             if (e.code === 'permission-denied') notifyFirestoreError("PERMISSION_DENIED");
+             if (e.code === 'not-found' || e.message?.includes('database')) notifyFirestoreError("SETUP_REQUIRED");
+         }
+     }
   },
   
   // --- INVENTORY MANAGEMENT ---
@@ -322,7 +334,7 @@ export const storage = {
         } catch (e: any) {
             console.error("Order sync fail", e);
             if (e.code === 'permission-denied') notifyFirestoreError("PERMISSION_DENIED");
-            if (e.code === 'not-found') notifyFirestoreError("SETUP_REQUIRED");
+            if (e.code === 'not-found' || e.message?.includes('database')) notifyFirestoreError("SETUP_REQUIRED");
         }
     }
   },
@@ -351,7 +363,7 @@ export const storage = {
           } catch (e: any) {
               console.error("Customer sync fail", e);
               if (e.code === 'permission-denied') notifyFirestoreError("PERMISSION_DENIED");
-              if (e.code === 'not-found') notifyFirestoreError("SETUP_REQUIRED");
+              if (e.code === 'not-found' || e.message?.includes('database')) notifyFirestoreError("SETUP_REQUIRED");
           }
       }
   },
@@ -503,8 +515,10 @@ export const storage = {
               verified: true
           });
           console.log("🧾 Test Receipt Added");
-      } catch (e) {
+      } catch (e: any) {
           console.error("Error adding receipt", e);
+          if (e.code === 'permission-denied') notifyFirestoreError("PERMISSION_DENIED");
+          if (e.code === 'not-found' || e.message?.includes('database')) notifyFirestoreError("SETUP_REQUIRED");
           throw e;
       }
   },
