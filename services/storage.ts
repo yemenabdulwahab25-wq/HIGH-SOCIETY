@@ -1,7 +1,7 @@
 
 import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category, HolidayTheme, Review, Customer, CartItem } from '../types';
 import { db, auth } from './firebase';
-import { collection, doc, setDoc, getDocs, updateDoc, query, where, Timestamp, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, updateDoc, query, where, Timestamp, onSnapshot, addDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
 const KEYS = {
@@ -488,6 +488,25 @@ export const storage = {
           if (o.customerEmail) emails.add(o.customerEmail);
       });
       return Array.from(emails);
+  },
+
+  // --- TEST DATA UTILS ---
+  addTestReceipt: async () => {
+      if (!db) return;
+      try {
+          await addDoc(collection(db, "receipts"), {
+              uid: "randomuid2",
+              date: "04-07-2023",
+              amount: 10.50,
+              vendor: "Great Airline",
+              item: "NYC-SFO flight",
+              verified: true
+          });
+          console.log("🧾 Test Receipt Added");
+      } catch (e) {
+          console.error("Error adding receipt", e);
+          throw e;
+      }
   },
 
   // --- UTILITY: ONE-TIME SYNC DOWNLOAD ---

@@ -23,6 +23,11 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
+    // --- TEST DATA ---
+    match /receipts/{receiptId} {
+      allow read, write: if true;
+    }
+
     // --- PRIVATE USER DATA (Strict Ownership) ---
 
     // Customers: Users can only access their own profile

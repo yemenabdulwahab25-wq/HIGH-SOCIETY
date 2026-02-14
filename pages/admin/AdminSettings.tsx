@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { StoreSettings, HolidayTheme, SpecialEvent, DeliveryZone, Product, Customer, StrainType, Category } from '../../types';
 import { storage } from '../../services/storage';
 import { getCoordinates, generateMarketingEmail } from '../../services/gemini';
-import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2, Megaphone, Clock, DollarSign, Settings as SettingsIcon, AlertTriangle, Power, Ticket, MapPin, Loader2, Mail, Send, Database, UserPlus, PackagePlus } from 'lucide-react';
+import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2, Megaphone, Clock, DollarSign, Settings as SettingsIcon, AlertTriangle, Power, Ticket, MapPin, Loader2, Mail, Send, Database, UserPlus, PackagePlus, FileText } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 
 interface AdminSettingsProps {
@@ -250,6 +250,15 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
       };
       await storage.saveCustomer(testCustomer);
       alert(`Test Customer "${testCustomer.name}" created! \n\nPlease go to Firebase Console > Firestore > Data to verify.`);
+  };
+
+  const handleAddTestReceipt = async () => {
+      try {
+          await storage.addTestReceipt();
+          alert("Test Receipt added successfully!\n\nCheck 'receipts' collection in Firestore.");
+      } catch (e) {
+          alert("Failed to add test receipt. Check console for errors.");
+      }
   };
 
   const Toggle = ({ label, checked, onChange }: { label: string, checked: boolean, onChange: (v: boolean) => void }) => (
@@ -898,6 +907,9 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
               </Button>
               <Button onClick={handleAddTestCustomer} variant="secondary" className="flex items-center justify-center gap-2">
                   <UserPlus className="w-4 h-4" /> Add Test Customer
+              </Button>
+              <Button onClick={handleAddTestReceipt} variant="secondary" className="flex items-center justify-center gap-2 col-span-2">
+                  <FileText className="w-4 h-4" /> Add Test Receipt
               </Button>
           </div>
       </section>
