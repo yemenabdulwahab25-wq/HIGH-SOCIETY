@@ -1,7 +1,7 @@
 
 import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category, HolidayTheme, Review, Customer, CartItem } from '../types';
 import { db } from './firebase';
-import { collection, doc, setDoc, getDocs, updateDoc, query, where, Timestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, updateDoc, query, where, Timestamp, onSnapshot } from 'firebase/firestore';
 
 const KEYS = {
   PRODUCTS: 'hs_products',
@@ -110,7 +110,56 @@ const notifyUpdate = () => {
 // We write to LocalStorage immediately for speed/offline capability.
 // We write to Firebase in the background for persistence.
 
+let unsubscribeProducts: (() => void) | null = null;
+let unsubscribeOrders: (() => void) | null = null;
+let unsubscribeSettings: (() => void) | null = null;
+
 export const storage = {
+  // --- REAL-TIME SYNC ---
+  initRealtimeListeners: () => {
+      if (!db) return; // Don't listen if Firebase isn't configured
+
+      console.log("📡 Initializing Real-time Listeners...");
+
+      // 1. Products Listener
+      if (!unsubscribeProducts) {
+          unsubscribeProducts = onSnapshot(collection(db, "products"), (snapshot) => {
+              const products: Product[] = [];
+              snapshot.forEach((doc) => products.push(doc.data() as Product));
+              
+              if (products.length > 0) {
+                  // Compare with local to avoid infinite loops if possible, 
+                  // but for now we overwrite local with cloud truth
+                  localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
+                  notifyUpdate();
+              }
+          }, (error) => console.log("Product sync paused (offline)"));
+      }
+
+      // 2. Orders Listener
+      if (!unsubscribeOrders) {
+          unsubscribeOrders = onSnapshot(collection(db, "orders"), (snapshot) => {
+              const orders: Order[] = [];
+              snapshot.forEach((doc) => orders.push(doc.data() as Order));
+              
+              if (orders.length > 0) {
+                  localStorage.setItem(KEYS.ORDERS, encryptData(orders));
+                  notifyUpdate();
+              }
+          }, (error) => console.log("Order sync paused (offline)"));
+      }
+
+      // 3. Settings Listener
+      if (!unsubscribeSettings) {
+           unsubscribeSettings = onSnapshot(doc(db, "settings", "global"), (doc) => {
+               if (doc.exists()) {
+                   localStorage.setItem(KEYS.SETTINGS, JSON.stringify(doc.data()));
+                   notifyUpdate();
+               }
+           });
+      }
+  },
+
   getProducts: (): Product[] => {
     const data = localStorage.getItem(KEYS.PRODUCTS);
     let products = data ? JSON.parse(data) : INITIAL_PRODUCTS;

@@ -73,10 +73,13 @@ const AppContent = () => {
   // Activate Holiday Themes
   useHolidayTheme(settings);
 
-  // Load cart from local storage on mount
+  // Initialize Real-time Listeners & Load Cart
   useEffect(() => {
     const savedCart = localStorage.getItem('hs_cart');
     if (savedCart) setCart(JSON.parse(savedCart));
+
+    // Connect to Firebase for Live Updates
+    storage.initRealtimeListeners();
   }, []);
 
   // Sync cart to local storage
