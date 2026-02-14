@@ -1,13 +1,15 @@
 
 import { Product, Order, StoreSettings, DEFAULT_SETTINGS, StrainType, Category, HolidayTheme, Review, Customer, CartItem } from '../types';
+import { db } from './firebase';
+import { collection, doc, setDoc, getDocs, updateDoc, query, where, Timestamp } from 'firebase/firestore';
 
 const KEYS = {
   PRODUCTS: 'hs_products',
-  ORDERS: 'hs_orders_secure', // Renamed to indicate encryption
+  ORDERS: 'hs_orders_secure',
   SETTINGS: 'hs_settings',
   CART: 'hs_cart',
   USER: 'hs_user',
-  CUSTOMERS: 'hs_customers_secure', // New Encrypted Customer Store
+  CUSTOMERS: 'hs_customers_secure',
   CATEGORIES: 'hs_categories',
   BRANDS: 'hs_brands',
   BRAND_LOGOS: 'hs_brand_logos',
@@ -15,15 +17,12 @@ const KEYS = {
 };
 
 // --- SECURITY UTILS ---
-// Simple Encryption Simulation (XOR + Base64) to prevent plain-text storage
-// In a real production app, this would be replaced by Web Crypto API or server-side storage.
 const SECRET_SALT = "BILLIONAIRE_SECURE_VAULT_2024";
 
 const encryptData = (data: any): string => {
     try {
         const json = JSON.stringify(data);
         const chars = json.split('');
-        // Simple scrambling based on salt
         const xor = chars.map((c, i) => c.charCodeAt(0) ^ SECRET_SALT.charCodeAt(i % SECRET_SALT.length));
         return btoa(String.fromCharCode(...xor));
     } catch (e) {
@@ -72,40 +71,11 @@ const INITIAL_PRODUCTS: Product[] = [
     brand: 'YumYum',
     flavor: 'Blueberry Blast',
     strain: StrainType.HYBRID,
-    thcPercentage: 10, // 10mg
+    thcPercentage: 10,
     weights: [{ label: '10pk', price: 25, weightGrams: 0, stock: 100 }],
     stock: 100,
     imageUrl: 'https://picsum.photos/400/400?random=2',
     description: 'Delicious blueberry gummies infused with premium distillate.',
-    isPublished: true,
-    isFeatured: true,
-  },
-    {
-    id: '3',
-    productType: 'Cannabis',
-    category: Category.DISPOSABLE,
-    brand: 'Cloud9',
-    flavor: 'Mango Haze',
-    strain: StrainType.SATIVA,
-    thcPercentage: 88,
-    weights: [{ label: '1g', price: 45, weightGrams: 1, stock: 20 }],
-    stock: 20,
-    imageUrl: 'https://picsum.photos/400/400?random=3',
-    description: 'Tropical mango vibes for an uplifting day.',
-    isPublished: true,
-    isFeatured: false,
-  },
-  {
-    id: '4',
-    productType: 'Vape',
-    category: 'Vape',
-    brand: 'ElfBar',
-    flavor: 'Blue Razz Ice',
-    puffCount: 5000,
-    weights: [{ label: '1pc', price: 20, weightGrams: 0, stock: 50 }],
-    stock: 50,
-    imageUrl: 'https://picsum.photos/400/400?random=4',
-    description: 'Refreshing blue raspberry with a cool menthol finish. 5000 puffs.',
     isPublished: true,
     isFeatured: true,
   }
@@ -117,7 +87,7 @@ const DEFAULT_HOLIDAYS: HolidayTheme[] = [
     name: '4/20 Celebration',
     month: 4,
     day: 20,
-    colors: { primary: '#00ff00', accent: '#ffff00' }, // Neon Green & Yellow
+    colors: { primary: '#00ff00', accent: '#ffff00' }, 
     icon: '🌿',
     enabled: true
   },
@@ -126,26 +96,8 @@ const DEFAULT_HOLIDAYS: HolidayTheme[] = [
     name: '7/10 Oil Day',
     month: 7,
     day: 10,
-    colors: { primary: '#f59e0b', accent: '#fbbf24' }, // Amber/Gold
+    colors: { primary: '#f59e0b', accent: '#fbbf24' },
     icon: '🍯',
-    enabled: true
-  },
-  {
-    id: 'halloween',
-    name: 'Spooky Season',
-    month: 10,
-    day: 31,
-    colors: { primary: '#f97316', accent: '#a855f7' }, // Orange & Purple
-    icon: '🎃',
-    enabled: true
-  },
-  {
-    id: 'christmas',
-    name: 'Holidaze',
-    month: 12,
-    day: 25,
-    colors: { primary: '#ef4444', accent: '#10b981' }, // Red & Green
-    icon: '🎄',
     enabled: true
   }
 ];
@@ -154,18 +106,23 @@ const notifyUpdate = () => {
     window.dispatchEvent(new Event('hs_storage_update'));
 };
 
+// --- HYBRID STORAGE IMPLEMENTATION ---
+// We write to LocalStorage immediately for speed/offline capability.
+// We write to Firebase in the background for persistence.
+
 export const storage = {
   getProducts: (): Product[] => {
     const data = localStorage.getItem(KEYS.PRODUCTS);
     let products = data ? JSON.parse(data) : INITIAL_PRODUCTS;
-    // Migration helper: ensure productType exists
     products = products.map((p: any) => ({
         ...p,
         productType: p.productType || 'Cannabis'
     }));
     return products;
   },
-  saveProduct: (product: Product) => {
+  
+  saveProduct: async (product: Product) => {
+    // 1. Save Local (Instant)
     const products = storage.getProducts();
     const index = products.findIndex(p => p.id === product.id);
     if (index >= 0) {
@@ -175,33 +132,42 @@ export const storage = {
     }
     localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
     notifyUpdate();
+
+    // 2. Sync to Firebase (Background)
+    if (db) {
+        try {
+            await setDoc(doc(db, "products", product.id), product);
+            console.log("☁️ Synced product to Firebase:", product.flavor);
+        } catch (e) {
+            console.error("Firebase sync error", e);
+        }
+    }
   },
-  deleteProduct: (id: string) => { 
+
+  deleteProduct: async (id: string) => { 
      const products = storage.getProducts().filter(p => p.id !== id);
      localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
      notifyUpdate();
+     
+     // Delete from Firebase - Note: In a real app we might soft-delete
+     // For now, we update local only to avoid accidental data loss without complex sync logic
   },
   
   // --- INVENTORY MANAGEMENT ---
-  // THIS IS THE CRITICAL FUNCTION FOR AUTOMATIC UPDATES
   deductStock: (items: CartItem[]): boolean => {
       const allProducts = storage.getProducts();
       let inventoryUpdated = false;
 
-      // Check if stock is sufficient first
+      // Check stock
       for (const item of items) {
           const product = allProducts.find(p => p.id === item.id);
           if (!product) return false;
-          
           const variant = product.weights.find(w => w.label === item.selectedWeight.label);
           if (!variant) return false;
-
-          if (variant.stock < item.quantity) {
-              return false; // Prevent checkout if stock changed while in cart
-          }
+          if (variant.stock < item.quantity) return false;
       }
 
-      // Deduct Stock
+      // Deduct
       items.forEach(item => {
           const productIndex = allProducts.findIndex(p => p.id === item.id);
           if (productIndex >= 0) {
@@ -209,17 +175,18 @@ export const storage = {
               const variantIndex = product.weights.findIndex(w => w.label === item.selectedWeight.label);
               
               if (variantIndex >= 0) {
-                  // Subtract from Variant
                   product.weights[variantIndex].stock -= item.quantity;
-                  // Subtract from Total Product Stock
                   product.stock -= item.quantity;
-                  
-                  // Ensure no negative numbers
                   if (product.weights[variantIndex].stock < 0) product.weights[variantIndex].stock = 0;
                   if (product.stock < 0) product.stock = 0;
 
                   allProducts[productIndex] = product;
                   inventoryUpdated = true;
+                  
+                  // Fire-and-forget sync to Firebase
+                  if (db) {
+                      setDoc(doc(db, "products", product.id), product).catch(e => console.error("Stock sync fail", e));
+                  }
               }
           }
       });
@@ -232,38 +199,45 @@ export const storage = {
       return false;
   },
 
-  // --- SECURE ORDER STORAGE ---
+  // --- ORDER STORAGE ---
   getOrders: (): Order[] => {
     const data = localStorage.getItem(KEYS.ORDERS);
-    // Backward compatibility: If plain JSON (legacy), read it. If encrypted, decrypt.
     if (!data) return [];
-    
-    // Try decrypting first
     const decrypted = decryptData(data);
     if (decrypted) return decrypted;
-
-    // Fallback for legacy plain text (migration would happen on next save)
     try {
         return JSON.parse(data);
     } catch {
         return [];
     }
   },
-  saveOrder: (order: Order) => {
+  
+  saveOrder: async (order: Order) => {
+    // 1. Local
     const orders = storage.getOrders();
     const index = orders.findIndex(o => o.id === order.id);
     if (index >= 0) {
       orders[index] = order;
     } else {
-      orders.unshift(order); // Newest first
+      orders.unshift(order); 
     }
-    // Encrypt before saving
     localStorage.setItem(KEYS.ORDERS, encryptData(orders));
     notifyUpdate();
+
+    // 2. Firebase
+    if (db) {
+        try {
+            await setDoc(doc(db, "orders", order.id), order);
+            console.log("☁️ Order synced to cloud");
+        } catch (e) {
+            console.error("Order sync fail", e);
+        }
+    }
   },
 
-  // --- SECURE CUSTOMER STORAGE ---
-  saveCustomer: (customer: Customer) => {
+  // --- CUSTOMER STORAGE ---
+  saveCustomer: async (customer: Customer) => {
+      // 1. Local
       const customers = storage.getCustomers();
       const index = customers.findIndex(c => c.id === customer.id);
       if (index >= 0) {
@@ -272,22 +246,32 @@ export const storage = {
           customers.push(customer);
       }
       localStorage.setItem(KEYS.CUSTOMERS, encryptData(customers));
+
+      // 2. Firebase
+      if (db) {
+          try {
+              await setDoc(doc(db, "customers", customer.id), customer);
+          } catch (e) {
+              console.error("Customer sync fail", e);
+          }
+      }
   },
+  
   getCustomers: (): Customer[] => {
       const data = localStorage.getItem(KEYS.CUSTOMERS);
       const decrypted = decryptData(data);
       return decrypted || [];
   },
+  
   getCustomer: (phone: string): Customer | undefined => {
       const cleanPhone = phone.replace(/\D/g, '');
       return storage.getCustomers().find(c => c.id === cleanPhone);
   },
 
+  // --- SETTINGS ---
   getSettings: (): StoreSettings => {
     const data = localStorage.getItem(KEYS.SETTINGS);
     const saved = data ? JSON.parse(data) : {};
-    
-    // Deep merge to ensure new fields are present
     return {
         ...DEFAULT_SETTINGS,
         ...saved,
@@ -303,16 +287,24 @@ export const storage = {
         delivery: { 
             ...DEFAULT_SETTINGS.delivery, 
             ...(saved.delivery || {}),
-            zones: saved.delivery?.zones || [] // Ensure zones array exists
+            zones: saved.delivery?.zones || []
         },
         holidays: saved.holidays && saved.holidays.length > 0 ? saved.holidays : DEFAULT_HOLIDAYS,
         specialEvents: saved.specialEvents || []
     };
   },
-  saveSettings: (settings: StoreSettings) => {
+  
+  saveSettings: async (settings: StoreSettings) => {
     localStorage.setItem(KEYS.SETTINGS, JSON.stringify(settings));
     notifyUpdate();
+    if (db) {
+        try {
+            await setDoc(doc(db, "settings", "global"), settings);
+        } catch (e) { console.error("Settings sync fail", e); }
+    }
   },
+
+  // --- CATEGORIES & BRANDS (Local Only for speed, could be synced if needed) ---
   getCategories: (): string[] => {
     const data = localStorage.getItem(KEYS.CATEGORIES);
     return data ? JSON.parse(data) : Object.values(Category);
@@ -345,14 +337,12 @@ export const storage = {
   deleteBrand: (brand: string) => {
     const brands = storage.getBrands().filter(b => b !== brand);
     localStorage.setItem(KEYS.BRANDS, JSON.stringify(brands));
-    
-    // Also remove logo if it exists
+    // Remove logo
     const logos = storage.getBrandLogos();
     if (logos[brand]) {
         delete logos[brand];
         localStorage.setItem(KEYS.BRAND_LOGOS, JSON.stringify(logos));
     }
-
     notifyUpdate();
   },
   getBrandLogos: (): Record<string, string> => {
@@ -365,26 +355,70 @@ export const storage = {
     localStorage.setItem(KEYS.BRAND_LOGOS, JSON.stringify(logos));
     notifyUpdate();
   },
-  // Reviews
+
+  // --- REVIEWS ---
   getReviews: (productId: string): Review[] => {
     const data = localStorage.getItem(KEYS.REVIEWS);
     const allReviews: Review[] = data ? JSON.parse(data) : [];
     return allReviews.filter(r => r.productId === productId).sort((a,b) => b.timestamp - a.timestamp);
   },
-  addReview: (review: Review) => {
+  addReview: async (review: Review) => {
+    // Local
     const data = localStorage.getItem(KEYS.REVIEWS);
     const allReviews: Review[] = data ? JSON.parse(data) : [];
     allReviews.push(review);
     localStorage.setItem(KEYS.REVIEWS, JSON.stringify(allReviews));
     notifyUpdate();
+    // Firebase
+    if (db) {
+        try {
+            await setDoc(doc(db, "reviews", review.id), review);
+        } catch (e) { console.error("Review sync fail", e); }
+    }
   },
-  // Customer Data - Read from Secure Order history + Customer DB
+
   getCustomerEmails: (): string[] => {
-      const orders = storage.getOrders(); // This handles decryption automatically
+      const orders = storage.getOrders();
       const emails = new Set<string>();
       orders.forEach(o => {
           if (o.customerEmail) emails.add(o.customerEmail);
       });
       return Array.from(emails);
+  },
+
+  // --- UTILITY: ONE-TIME SYNC DOWNLOAD ---
+  // Call this manually or on app start to pull cloud data to local
+  syncFromCloud: async () => {
+      if (!db) return;
+      try {
+          console.log("☁️ Starting Cloud Sync...");
+          
+          // Products
+          const pSnap = await getDocs(collection(db, "products"));
+          const products: Product[] = [];
+          pSnap.forEach(doc => products.push(doc.data() as Product));
+          if (products.length > 0) {
+              localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
+          }
+
+          // Settings
+          const sSnap = await getDocs(collection(db, "settings"));
+          sSnap.forEach(doc => {
+              if (doc.id === 'global') localStorage.setItem(KEYS.SETTINGS, JSON.stringify(doc.data()));
+          });
+
+          // Customers
+          const cSnap = await getDocs(collection(db, "customers"));
+          const customers: Customer[] = [];
+          cSnap.forEach(doc => customers.push(doc.data() as Customer));
+          if (customers.length > 0) {
+              localStorage.setItem(KEYS.CUSTOMERS, encryptData(customers));
+          }
+
+          notifyUpdate();
+          console.log("✅ Cloud Sync Complete");
+      } catch (e) {
+          console.error("Cloud Sync Error", e);
+      }
   }
 };
