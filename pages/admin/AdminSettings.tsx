@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { StoreSettings, HolidayTheme, SpecialEvent, DeliveryZone } from '../../types';
+import { StoreSettings, HolidayTheme, SpecialEvent, DeliveryZone, Product, Customer, StrainType, Category } from '../../types';
 import { storage } from '../../services/storage';
 import { getCoordinates, generateMarketingEmail } from '../../services/gemini';
-import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2, Megaphone, Clock, DollarSign, Settings as SettingsIcon, AlertTriangle, Power, Ticket, MapPin, Loader2, Mail, Send } from 'lucide-react';
+import { Lock, Shield, Tag, X, FolderOpen, Calendar, Plus, Trash2, Megaphone, Clock, DollarSign, Settings as SettingsIcon, AlertTriangle, Power, Ticket, MapPin, Loader2, Mail, Send, Database, UserPlus, PackagePlus } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 
 interface AdminSettingsProps {
@@ -214,6 +214,42 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
     if (window.confirm(`Delete brand "${brand}"?`)) {
         storage.deleteBrand(brand);
     }
+  };
+
+  // --- DATABASE TESTING UTILS ---
+  const handleAddTestProduct = async () => {
+      const id = `test-${Math.floor(Math.random() * 10000)}`;
+      const testProduct: Product = {
+          id: id,
+          productType: 'Cannabis',
+          category: Category.FLOWER,
+          brand: 'Test Brand',
+          flavor: `Test Flavor ${id}`,
+          strain: StrainType.HYBRID,
+          thcPercentage: 25,
+          weights: [{ label: '3.5g', price: 50, weightGrams: 3.5, stock: 100 }],
+          stock: 100,
+          imageUrl: 'https://via.placeholder.com/300?text=Test+Product',
+          description: 'This is a test product for database verification.',
+          isPublished: true,
+          isFeatured: false
+      };
+      await storage.saveProduct(testProduct);
+      alert(`Test Product "${testProduct.flavor}" created! \n\nPlease go to Firebase Console > Firestore > Data to verify.`);
+  };
+
+  const handleAddTestCustomer = async () => {
+      const id = `user-${Math.floor(Math.random() * 10000)}`;
+      const testCustomer: Customer = {
+          id: id,
+          name: `Test User ${id}`,
+          phone: `555${id}`, // Fake phone
+          pin: '1234',
+          joinedDate: Date.now(),
+          email: `test${id}@example.com`
+      };
+      await storage.saveCustomer(testCustomer);
+      alert(`Test Customer "${testCustomer.name}" created! \n\nPlease go to Firebase Console > Firestore > Data to verify.`);
   };
 
   const Toggle = ({ label, checked, onChange }: { label: string, checked: boolean, onChange: (v: boolean) => void }) => (
@@ -844,6 +880,25 @@ export const AdminSettings: React.FC<AdminSettingsProps> = ({ settings, onUpdate
                 onChange={(e) => updateSetting('messages', 'template', e.target.value)}
                 className="w-full bg-dark-900 border border-gray-700 rounded-lg p-3 text-white h-20"
               />
+          </div>
+      </section>
+
+      {/* DATABASE TESTING TOOLS */}
+      <section className="bg-dark-800 rounded-xl p-6 border border-gray-700">
+          <div className="flex items-center gap-2 mb-4">
+              <Database className="w-5 h-5 text-cannabis-500" />
+              <h2 className="text-xl font-bold text-white text-cannabis-400">Database Tools</h2>
+          </div>
+          <p className="text-sm text-gray-400 mb-4">
+              Use these tools to verify your Firestore connection by adding test data.
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+              <Button onClick={handleAddTestProduct} variant="secondary" className="flex items-center justify-center gap-2">
+                  <PackagePlus className="w-4 h-4" /> Add Test Product
+              </Button>
+              <Button onClick={handleAddTestCustomer} variant="secondary" className="flex items-center justify-center gap-2">
+                  <UserPlus className="w-4 h-4" /> Add Test Customer
+              </Button>
           </div>
       </section>
 
