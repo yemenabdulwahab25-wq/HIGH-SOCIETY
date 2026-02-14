@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './services/firebase';
 import { Layout } from './components/Layout';
 import { Storefront } from './pages/Storefront';
 import { ProductDetails } from './pages/ProductDetails';
@@ -14,17 +16,19 @@ import { AdminInventory } from './pages/admin/AdminInventory';
 import { AdminSettings } from './pages/admin/AdminSettings';
 import { AdminCustomers } from './pages/admin/AdminCustomers';
 import { AdminMarketing } from './pages/admin/AdminMarketing';
+import { FirebaseLogin } from './pages/FirebaseLogin';
 import { storage } from './services/storage';
 import { CartItem, Product, StoreSettings } from './types';
+import { Loader2 } from 'lucide-react';
 
-// Wrapper for Admin Routes to ensure auth
+// Wrapper for Admin Routes to ensure auth (Internal Pin)
 const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
   const isAuth = localStorage.getItem('hs_admin_auth') === 'true';
   if (!isAuth) return <Navigate to="/admin" replace />;
   return <>{children}</>;
 };
 
-// Wrapper for Customer Routes to ensure Access Code if enabled
+// Wrapper for Customer Routes to ensure Access Code if enabled (Internal Code)
 const CustomerRoute = ({ children, settings }: { children?: React.ReactNode, settings: StoreSettings }) => {
   if (settings.access?.enabled) {
      const enteredCode = localStorage.getItem('hs_customer_entered_code');
@@ -69,17 +73,30 @@ const useHolidayTheme = (settings: StoreSettings) => {
 const AppContent = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [settings, setSettings] = useState<StoreSettings>(storage.getSettings());
+  
+  // Firebase Auth State
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   // Activate Holiday Themes
   useHolidayTheme(settings);
 
-  // Initialize Real-time Listeners & Load Cart
+  // Initialize Real-time Listeners & Auth
   useEffect(() => {
+    // 1. Load Local Cart
     const savedCart = localStorage.getItem('hs_cart');
     if (savedCart) setCart(JSON.parse(savedCart));
 
-    // Connect to Firebase for Live Updates
+    // 2. Connect to Firebase for Live Updates
     storage.initRealtimeListeners();
+
+    // 3. Listen for Auth Changes
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribeAuth();
   }, []);
 
   // Sync cart to local storage
@@ -87,12 +104,11 @@ const AppContent = () => {
     localStorage.setItem('hs_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // Poll for settings updates (e.g. if Admin changes Access Code in another tab)
+  // Poll for settings updates
   useEffect(() => {
     const interval = setInterval(() => {
         const latest = storage.getSettings();
         setSettings(prev => {
-            // Only update if changed to avoid unnecessary re-renders
             if (JSON.stringify(prev) !== JSON.stringify(latest)) {
                 return latest;
             }
@@ -122,9 +138,24 @@ const AppContent = () => {
 
   const clearCart = () => setCart([]);
 
+  // AUTH LOADING SCREEN
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-cannabis-500 animate-spin" />
+      </div>
+    );
+  }
+
+  // AUTH GUARD: Show Login if not authenticated
+  if (!user) {
+    return <FirebaseLogin />;
+  }
+
+  // MAIN APP
   return (
     <Routes>
-      {/* Access Gate */}
+      {/* Access Gate (Internal Layer) */}
       <Route path="/access" element={<StoreAccess settings={settings} />} />
 
       {/* Public Guide */}

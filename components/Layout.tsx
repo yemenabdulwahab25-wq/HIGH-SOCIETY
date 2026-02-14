@@ -6,6 +6,7 @@ import { CustomerServiceChat } from './CustomerServiceChat';
 import { StoreSettings, OrderStatus } from '../types';
 import { Logo } from './Logo';
 import { storage } from '../services/storage';
+import { auth } from '../services/firebase';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -45,6 +46,10 @@ export const Layout = ({ children, isAdmin, cartCount = 0, settings }: LayoutPro
 
     return () => clearInterval(interval);
   }, [isAdmin]);
+
+  const handleSignOut = () => {
+    auth.signOut();
+  };
 
   return (
     <div className="min-h-screen bg-dark-950 text-gray-100 flex flex-col font-sans">
@@ -101,6 +106,13 @@ export const Layout = ({ children, isAdmin, cartCount = 0, settings }: LayoutPro
                 <User className="w-6 h-6 text-gray-300" />
                 {readyOrder && <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-green-500 rounded-full border border-black animate-pulse"></span>}
               </Link>
+              <button 
+                onClick={handleSignOut} 
+                className="p-2 hover:bg-white/5 rounded-full transition-colors text-gray-500 hover:text-white"
+                title="Sign Out"
+              >
+                  <LogOut className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </header>
@@ -121,8 +133,9 @@ export const Layout = ({ children, isAdmin, cartCount = 0, settings }: LayoutPro
                <Link to="/admin/marketing" className={`text-sm font-medium ${location.pathname.includes('marketing') ? 'text-cannabis-500' : 'text-gray-400'}`}>Marketing</Link>
                <Link to="/admin/settings" className={`text-sm font-medium ${location.pathname.includes('settings') ? 'text-cannabis-500' : 'text-gray-400'}`}>Settings</Link>
              </nav>
-             <button onClick={() => { localStorage.removeItem('hs_admin_auth'); navigate('/admin'); }} className="text-gray-400 hover:text-white">
+             <button onClick={() => { auth.signOut(); navigate('/'); }} className="text-gray-400 hover:text-white flex items-center gap-2 text-sm">
                 <LogOut className="w-5 h-5" />
+                <span className="hidden md:inline">Exit App</span>
              </button>
            </div>
         </header>

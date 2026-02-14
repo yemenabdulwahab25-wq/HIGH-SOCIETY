@@ -3,37 +3,22 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
-// --- ACTION REQUIRED: PASTE YOUR FIREBASE CONFIG HERE ---
-// 1. Go to console.firebase.google.com
-// 2. Create a new project
-// 3. Add a Web App (</> icon)
-// 4. Copy the config object below
+// Firebase Configuration
 const firebaseConfig = {
-  apiKey: "API_KEY_HERE",
-  authDomain: "PROJECT_ID.firebaseapp.com",
-  projectId: "PROJECT_ID",
-  storageBucket: "PROJECT_ID.appspot.com",
-  messagingSenderId: "SENDER_ID",
-  appId: "APP_ID"
+  apiKey: "AIzaSyAhwvFKncrFgmz_8Dw7XZRRVYhroSfWsv8",
+  authDomain: "gen-lang-client-0875698677.firebaseapp.com",
+  projectId: "gen-lang-client-0875698677",
+  storageBucket: "gen-lang-client-0875698677.firebasestorage.app",
+  messagingSenderId: "508868289480",
+  appId: "1:508868289480:web:9c5b8fdfbdaf82bc45d6fd",
+  measurementId: "G-B66KMX8C62"
 };
 
 // Initialize Firebase
-// We wrap this in a try-catch to prevent app crash if config is missing
-let app;
-let db: any;
-let auth: any;
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
 
-try {
-    if (firebaseConfig.apiKey !== "API_KEY_HERE") {
-        app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
-        console.log("🔥 Firebase Initialized Successfully");
-    } else {
-        console.warn("⚠️ Firebase Config missing in services/firebase.ts. App running in Offline Mode.");
-    }
-} catch (e) {
-    console.error("Firebase Initialization Error:", e);
-}
+console.log("🔥 Firebase Initialized");
 
 export { db, auth };
