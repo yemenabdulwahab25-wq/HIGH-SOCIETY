@@ -1,9 +1,10 @@
 
 import { initializeApp } from 'firebase/app';
+import { getAnalytics, isSupported } from "firebase/analytics";
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
-// Firebase Configuration
+// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAhwvFKncrFgmz_8Dw7XZRRVYhroSfWsv8",
   authDomain: "gen-lang-client-0875698677.firebaseapp.com",
@@ -16,9 +17,21 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
+// Initialize Analytics conditionally
+let analytics: any = null;
+isSupported().then((supported) => {
+  if (supported) {
+    analytics = getAnalytics(app);
+  }
+}).catch((e) => {
+  console.warn("Analytics not supported:", e);
+});
+
+// Exports for app usage
 const db = getFirestore(app);
 const auth = getAuth(app);
 
 console.log("🔥 Firebase Initialized");
 
-export { db, auth };
+export { db, auth, analytics };

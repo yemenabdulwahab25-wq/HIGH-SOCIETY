@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/ui/Button';
-import { Lock, Mail, AlertCircle, ShieldCheck, ExternalLink } from 'lucide-react';
+import { Lock, Mail, AlertCircle, ShieldCheck } from 'lucide-react';
 
 export const FirebaseLogin: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -12,6 +13,10 @@ export const FirebaseLogin: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Verification State
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -19,29 +24,73 @@ export const FirebaseLogin: React.FC = () => {
 
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        // Sign Up
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await sendEmailVerification(userCredential.user);
+        await signOut(auth); // Sign out immediately to enforce verification step
+        
+        setPendingEmail(email);
+        setVerificationSent(true);
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        // Sign In
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        
+        // Check verification status
+        if (!userCredential.user.emailVerified) {
+             await signOut(auth); // Block access
+             setPendingEmail(email);
+             setVerificationSent(true);
+        }
+        // If verified, App.tsx handles the redirect via onAuthStateChanged
       }
     } catch (err: any) {
       console.error("Auth Error:", err);
-      let msg = "Authentication failed.";
       
-      // Common User Errors
-      if (err.code === 'auth/invalid-credential') msg = "Invalid email or password.";
-      if (err.code === 'auth/email-already-in-use') msg = "Email already in use.";
-      if (err.code === 'auth/weak-password') msg = "Password should be at least 6 characters.";
-      
-      // Configuration Errors (Developer Action Required)
-      if (err.code === 'auth/configuration-not-found' || err.code === 'auth/operation-not-allowed') {
-          msg = "SETUP REQUIRED: Enable 'Email/Password' in Firebase Console -> Authentication -> Sign-in method.";
+      // Exact error messages as requested
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        setError("Email or password is incorrect");
+      } else if (err.code === 'auth/email-already-in-use') {
+        setError("User already exists. Please sign in");
+      } else if (err.code === 'auth/weak-password') {
+        setError("Password should be at least 6 characters");
+      } else {
+        setError("Authentication failed. Please try again.");
       }
-      
-      setError(msg);
     } finally {
       setLoading(false);
     }
   };
+
+  if (verificationSent) {
+    return (
+      <div className="min-h-screen bg-dark-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cannabis-900/20 rounded-full blur-[100px]"></div>
+            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-gold-500/10 rounded-full blur-[100px]"></div>
+        </div>
+
+        <div className="w-full max-w-md bg-dark-900/80 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl relative z-10 animate-in fade-in zoom-in-95 duration-500 text-center">
+            <div className="flex justify-center mb-6">
+                 <div className="w-20 h-20 bg-cannabis-500/20 rounded-full flex items-center justify-center animate-pulse">
+                    <Mail className="w-10 h-10 text-cannabis-500" />
+                 </div>
+            </div>
+
+            <h1 className="text-2xl font-bold text-white mb-4">Verify Your Email</h1>
+            <p className="text-gray-400 mb-8 leading-relaxed">
+                We have sent you a verification email to <span className="text-white font-bold">{pendingEmail}</span>.
+                <br/><br/>
+                Please verify it and log in to access the Billionaire Level.
+            </p>
+
+            <Button fullWidth size="lg" onClick={() => setVerificationSent(false)}>
+                Back to Login
+            </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-dark-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -101,11 +150,6 @@ export const FirebaseLogin: React.FC = () => {
                     <AlertCircle className="w-4 h-4 flex-shrink-0" /> Error
                 </div>
                 <div>{error}</div>
-                {error.includes("SETUP REQUIRED") && (
-                     <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="text-xs underline flex items-center gap-1 mt-1 hover:text-red-300">
-                         Open Firebase Console <ExternalLink className="w-3 h-3" />
-                     </a>
-                )}
             </div>
           )}
 

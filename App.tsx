@@ -95,7 +95,12 @@ const AppContent = () => {
 
     // 3. Listen for Auth Changes
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+      // STRICT VERIFICATION: Only allow access if email is verified
+      if (currentUser && currentUser.emailVerified) {
+        setUser(currentUser);
+      } else {
+        setUser(null);
+      }
       setAuthLoading(false);
     });
 
